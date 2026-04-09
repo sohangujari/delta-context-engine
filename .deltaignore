@@ -1,0 +1,21 @@
+# Delta ignore patterns
+# These extend .gitignore for Delta-specific exclusions
+
+# Dependencies
+node_modules/**
+
+# Build outputs
+dist/**
+build/**
+.next/**
+out/**
+
+# Generated files
+*.generated.ts
+*.generated.js
+
+# Test coverage
+coverage/**
+
+# Delta internal
+.delta/**
