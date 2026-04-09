@@ -29,13 +29,13 @@ export interface ImportSymbol {
 export interface ExportSymbol {
   name: string;
   kind: 'function' | 'class' | 'const' | 'type' | 'interface' | 'enum' | 'default';
-  signature?: string;     // full signature for functions/types
+  signature?: string;
 }
 
 export interface TypeSymbol {
   name: string;
   kind: 'interface' | 'type' | 'enum';
-  definition: string;     // compact representation
+  definition: string;
   lineNumber: number;
 }
 
@@ -47,8 +47,8 @@ export interface SymbolMap {
   classes: ClassSymbol[];
   functions: FunctionSymbol[];
   types: TypeSymbol[];
-  tokenCount: number;     // token cost of this symbol map
-  rawTokenCount: number;  // token cost of the full file
+  tokenCount: number;
+  rawTokenCount: number;
 }
 
 export type SupportedLanguage =
