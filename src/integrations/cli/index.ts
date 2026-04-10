@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { runCommand } from './commands/run.js';
+import { statsCommand } from './commands/stats.js';
 
 const program = new Command();
 
@@ -24,7 +25,7 @@ program
   .description('Assemble optimized context for a task')
   .option('--root <path>', 'Project root directory', process.cwd())
   .option('--budget <tokens>', 'Token budget override', '2000')
-  .option('--verbose', 'Show relevance scores and manifest')
+  .option('--verbose', 'Show manifest and payload preview')
   .action(
     async (
       task: string,
@@ -33,9 +34,17 @@ program
       await runCommand(task, {
         root: options.root,
         budget: parseInt(options.budget, 10),
-        verbose: options.verbose,
+        verbose: options.verbose ?? false,
       });
     }
   );
+
+program
+  .command('stats')
+  .description('Show index statistics')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .action(async (options: { root: string }) => {
+    await statsCommand(options.root);
+  });
 
 program.parse();

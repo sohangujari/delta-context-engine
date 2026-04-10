@@ -10,6 +10,7 @@ import { buildFullGraph } from '../../../core/graph/builder.js';
 import { DeltaDb } from '../../../persistence/delta-db.js';
 import { GraphStore } from '../../../persistence/graph-store.js';
 import { StateStore } from '../../../persistence/state-store.js';
+import { SymbolStore } from '../../../persistence/symbol-store.js';
 
 export async function initCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
@@ -35,18 +36,19 @@ export async function initCommand(projectRoot: string): Promise<void> {
   // Step 4: Write .deltaignore
   writeDeltaIgnore(root);
 
-  // Step 5: Index all files + build dependency graph
+  // Step 5: Index + build graph
   const ignorePatterns = loadIgnorePatterns(root);
   const allFiles = walkDirectory(root, root, ignorePatterns);
 
   console.log('');
 
   const indexSpinner = ora(
-    `Indexing ${allFiles.length} files and building dependency graph...`
+    `Indexing ${allFiles.length} files...`
   ).start();
 
   const graphStore = new GraphStore(db.getDb());
   const stateStore = new StateStore(db.getDb());
+  const symbolStore = new SymbolStore(db.getDb());
 
   let lastPercent = 0;
 
@@ -55,11 +57,12 @@ export async function initCommand(projectRoot: string): Promise<void> {
     allFiles,
     graphStore,
     stateStore,
+    symbolStore,
     onProgress: (done, total) => {
       const percent = Math.floor((done / total) * 100);
       if (percent >= lastPercent + 10) {
         lastPercent = percent;
-        indexSpinner.text = `Indexing files and building graph... ${percent}%`;
+        indexSpinner.text = `Indexing files... ${percent}%`;
       }
     },
   });
@@ -67,7 +70,7 @@ export async function initCommand(projectRoot: string): Promise<void> {
   if (result.errors.length > 0) {
     indexSpinner.warn(
       chalk.yellow(
-        `Indexed ${result.filesProcessed} files with ${result.errors.length} warning(s)`
+        `Indexed ${result.filesProcessed} files · ${result.edgesCreated} edges · ${result.errors.length} warning(s)`
       )
     );
   } else {
@@ -80,25 +83,20 @@ export async function initCommand(projectRoot: string): Promise<void> {
 
   db.close();
 
-  // Step 6: .gitignore note
   printGitignoreNote(root);
 
   console.log(chalk.dim('─'.repeat(45)));
   console.log(chalk.bold.green('✓ Delta initialized successfully'));
   console.log('');
   console.log('Next steps:');
-  console.log(
-    `  ${chalk.cyan('delta run "your task here"')}   Assemble optimized context`
-  );
+  console.log(`  ${chalk.cyan('delta run "your task here"')}   Assemble optimized context`);
+  console.log(`  ${chalk.cyan('delta stats')}                  Show index statistics`);
   console.log('');
 }
 
 function writeDeltaIgnore(projectRoot: string): void {
   const deltaignorePath = path.join(projectRoot, '.deltaignore');
-
-  if (fs.existsSync(deltaignorePath)) {
-    return;
-  }
+  if (fs.existsSync(deltaignorePath)) return;
 
   const contents = [
     '# Delta ignore patterns',
@@ -129,10 +127,7 @@ function writeDeltaIgnore(projectRoot: string): void {
 
 function printGitignoreNote(projectRoot: string): void {
   const gitignorePath = path.join(projectRoot, '.gitignore');
-
-  if (!fs.existsSync(gitignorePath)) {
-    return;
-  }
+  if (!fs.existsSync(gitignorePath)) return;
 
   const content = fs.readFileSync(gitignorePath, 'utf-8');
   if (!content.includes('.delta/')) {
