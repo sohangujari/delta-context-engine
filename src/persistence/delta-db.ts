@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { DELTA_DIR, DB_FILE } from '../config/defaults.js';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const SCHEMA = `
   -- Schema version tracking
@@ -25,7 +25,6 @@ const SCHEMA = `
   );
 
   -- Symbol maps (stored as JSON)
-  -- FK to indexed_files: symbol maps are always tied to an indexed file
   CREATE TABLE IF NOT EXISTS symbol_maps (
     file_path    TEXT PRIMARY KEY,
     symbols_json TEXT NOT NULL,
@@ -35,11 +34,21 @@ const SCHEMA = `
 
   -- Dependency graph edges
   -- No FK constraint — edges can reference files outside the index
-  -- (e.g. partially ignored files, files in node_modules boundaries)
   CREATE TABLE IF NOT EXISTS graph_edges (
     from_path  TEXT NOT NULL,
     to_path    TEXT NOT NULL,
     PRIMARY KEY (from_path, to_path)
+  );
+
+  -- Vector embeddings (stored as BLOB of 32-bit floats)
+  -- nomic-embed-text produces 768-dimensional vectors
+  CREATE TABLE IF NOT EXISTS embeddings (
+    file_path   TEXT PRIMARY KEY,
+    vector      BLOB NOT NULL,       -- Float32Array serialized to buffer
+    dimensions  INTEGER NOT NULL DEFAULT 768,
+    model       TEXT NOT NULL DEFAULT 'nomic-embed-text',
+    created_at  TEXT NOT NULL,
+    FOREIGN KEY (file_path) REFERENCES indexed_files(path) ON DELETE CASCADE
   );
 
   -- Session tracking

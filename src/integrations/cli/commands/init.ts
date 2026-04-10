@@ -7,10 +7,13 @@ import { DEFAULT_CONFIG } from '../../../config/defaults.js';
 import { loadIgnorePatterns } from '../../../config/deltaignore.js';
 import { walkDirectory } from '../../../core/change-detector/hash-tracker.js';
 import { buildFullGraph } from '../../../core/graph/builder.js';
+import { checkOllamaAvailable } from '../../../core/embeddings/embedder.js';
+import { embedFile } from '../../../core/embeddings/query.js';
 import { DeltaDb } from '../../../persistence/delta-db.js';
 import { GraphStore } from '../../../persistence/graph-store.js';
 import { StateStore } from '../../../persistence/state-store.js';
 import { SymbolStore } from '../../../persistence/symbol-store.js';
+import { VectorStore } from '../../../core/embeddings/vector-store.js';
 
 export async function initCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
@@ -36,19 +39,18 @@ export async function initCommand(projectRoot: string): Promise<void> {
   // Step 4: Write .deltaignore
   writeDeltaIgnore(root);
 
-  // Step 5: Index + build graph
+  // Step 5: Index all files + build dependency graph
   const ignorePatterns = loadIgnorePatterns(root);
   const allFiles = walkDirectory(root, root, ignorePatterns);
 
   console.log('');
 
-  const indexSpinner = ora(
-    `Indexing ${allFiles.length} files...`
-  ).start();
+  const indexSpinner = ora(`Indexing ${allFiles.length} files...`).start();
 
   const graphStore = new GraphStore(db.getDb());
   const stateStore = new StateStore(db.getDb());
   const symbolStore = new SymbolStore(db.getDb());
+  const vectorStore = new VectorStore(db.getDb());
 
   let lastPercent = 0;
 
@@ -81,6 +83,63 @@ export async function initCommand(projectRoot: string): Promise<void> {
     );
   }
 
+  // Step 6: Generate embeddings (if Ollama is available)
+  console.log('');
+  const ollamaCheck = await checkOllamaAvailable();
+
+  if (!ollamaCheck.available) {
+    console.log(
+      chalk.yellow(`⚠ Skipping embeddings: ${ollamaCheck.reason}`)
+    );
+    console.log(
+      chalk.dim('  Semantic scoring disabled. Graph + AST scoring still active.')
+    );
+    console.log(
+      chalk.dim('  To enable: ollama serve && ollama pull nomic-embed-text')
+    );
+  } else {
+    const embedSpinner = ora(
+      `Generating embeddings for ${allFiles.length} files...`
+    ).start();
+
+    let embedded = 0;
+    let embedErrors = 0;
+    lastPercent = 0;
+
+    for (let i = 0; i < allFiles.length; i++) {
+      const filePath = allFiles[i];
+      if (!filePath) continue;
+
+      try {
+        const success = await embedFile(
+          filePath,
+          root,
+          symbolStore,
+          vectorStore
+        );
+        if (success) embedded++;
+      } catch {
+        embedErrors++;
+      }
+
+      const percent = Math.floor(((i + 1) / allFiles.length) * 100);
+      if (percent >= lastPercent + 10) {
+        lastPercent = percent;
+        embedSpinner.text = `Generating embeddings... ${percent}% (${embedded} embedded)`;
+      }
+    }
+
+    if (embedErrors > 0) {
+      embedSpinner.warn(
+        chalk.yellow(`Embedded ${embedded} files · ${embedErrors} skipped`)
+      );
+    } else {
+      embedSpinner.succeed(
+        chalk.green(`Embedded ${embedded} / ${allFiles.length} files`)
+      );
+    }
+  }
+
   db.close();
 
   printGitignoreNote(root);
@@ -102,23 +161,14 @@ function writeDeltaIgnore(projectRoot: string): void {
     '# Delta ignore patterns',
     '# These extend .gitignore for Delta-specific exclusions',
     '',
-    '# Dependencies',
     'node_modules/**',
-    '',
-    '# Build outputs',
     'dist/**',
     'build/**',
     '.next/**',
     'out/**',
-    '',
-    '# Generated files',
     '*.generated.ts',
     '*.generated.js',
-    '',
-    '# Test coverage',
     'coverage/**',
-    '',
-    '# Delta internal',
     '.delta/**',
   ].join('\n');
 
