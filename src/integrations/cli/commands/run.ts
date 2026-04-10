@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import fs from 'fs';
 import ora from 'ora';
 import path from 'path';
 import { loadConfig } from '../../../config/delta.config.js';
@@ -8,7 +9,9 @@ import { walkDirectory } from '../../../core/change-detector/hash-tracker.js';
 import { extractSymbols } from '../../../core/ast/symbol-extractor.js';
 import { formatSymbolMap } from '../../../core/ast/symbol-map.js';
 import { generateSummary } from '../../../core/ast/summary-generator.js';
+import { traverseFromChanged, formatTraversalResult } from '../../../core/graph/traverser.js';
 import { DeltaDb } from '../../../persistence/delta-db.js';
+import { GraphStore } from '../../../persistence/graph-store.js';
 import { StateStore } from '../../../persistence/state-store.js';
 
 export interface RunOptions {
@@ -31,10 +34,11 @@ export async function runCommand(
   const config = loadConfig(root);
   const db = new DeltaDb(root);
   const stateStore = new StateStore(db.getDb());
+  const graphStore = new GraphStore(db.getDb());
   const ignorePatterns = loadIgnorePatterns(root);
 
   try {
-    // Step 1: Detect changes
+    // ── Step 1: Detect changed files ──────────────────────────────
     const changeSpinner = ora('Detecting changes...').start();
     const allFiles = walkDirectory(root, root, ignorePatterns);
     const classification = await classifyFiles(root, stateStore, allFiles);
@@ -44,72 +48,142 @@ export async function runCommand(
         chalk.dim('No changes detected') +
         chalk.dim(` (${classification.strategy} · ${allFiles.length} files scanned)`)
       );
-    } else {
-      changeSpinner.succeed(
-        chalk.green(`${classification.changedCount} file(s) changed`) +
-        chalk.dim(` (${classification.strategy})`)
+      console.log('');
+      console.log(chalk.dim('Nothing changed — context would be identical to last task.'));
+      return;
+    }
+
+    changeSpinner.succeed(
+      chalk.green(`${classification.changedCount} file(s) changed`) +
+      chalk.dim(` (${classification.strategy})`)
+    );
+    for (const f of classification.changed) {
+      console.log(`  ${chalk.yellow('CHANGED')}  ${f.relativePath}`);
+    }
+    console.log('');
+
+    // ── Step 2: Graph traversal ───────────────────────────────────
+    const graphSpinner = ora('Tracing dependency graph...').start();
+
+    const changedPaths = classification.changed.map((f) => f.path);
+    const traversal = traverseFromChanged(
+      changedPaths,
+      graphStore,
+      root,
+      config.graph.maxDepth
+    );
+
+    graphSpinner.succeed(
+      chalk.green('Dependency graph traversed') +
+      chalk.dim(
+        ` · touched: ${traversal.touched.length} · ancestors: ${traversal.ancestors.length}`
+      )
+    );
+
+    if (options.verbose) {
+      console.log('');
+      console.log(
+        chalk.dim(formatTraversalResult(traversal, allFiles, root))
       );
-      for (const f of classification.changed) {
-        console.log(`  ${chalk.yellow('CHANGED')}  ${f.relativePath}`);
-      }
     }
 
     console.log('');
 
-    // Step 2: Extract symbols from changed files
-    if (classification.changedCount > 0) {
-      const astSpinner = ora('Extracting symbols...').start();
+    // ── Step 3: Extract symbols ───────────────────────────────────
+    const astSpinner = ora('Extracting symbols...').start();
 
-      let successCount = 0;
-      let totalRawTokens = 0;
-      let totalSymbolTokens = 0;
+    let totalRawTokens = 0;
+    let totalSymbolTokens = 0;
+    let extractedCount = 0;
 
-      for (const changedFile of classification.changed) {
-        const symbolMap = await extractSymbols(changedFile.path);
+    // Extract from changed files (full content — counted for savings display)
+    for (const f of traversal.changed) {
+      if (!fs.existsSync(f.path)) continue;
+      const sym = await extractSymbols(f.path);
+      if (sym) {
+        totalRawTokens += sym.rawTokenCount;
+        totalSymbolTokens += sym.rawTokenCount; // changed = full content
+        extractedCount++;
 
-        if (symbolMap) {
-          successCount++;
-          totalRawTokens += symbolMap.rawTokenCount;
-          totalSymbolTokens += symbolMap.tokenCount;
-
-          if (options.verbose) {
-            astSpinner.stop();
-            console.log(chalk.dim('─'.repeat(45)));
-            console.log(chalk.cyan(changedFile.relativePath));
-            console.log(formatSymbolMap(symbolMap));
-            console.log(chalk.dim(`Summary: ${generateSummary(symbolMap)}`));
-            console.log(
-              chalk.dim(
-                `Tokens: ${symbolMap.rawTokenCount} raw → ${symbolMap.tokenCount} symbols (${Math.round((1 - symbolMap.tokenCount / symbolMap.rawTokenCount) * 100)}% reduction)`
-              )
-            );
-            console.log('');
-            astSpinner.start();
-          }
+        if (options.verbose) {
+          astSpinner.stop();
+          console.log(chalk.dim('─'.repeat(45)));
+          console.log(chalk.bold.yellow(`CHANGED  ${f.relativePath}`));
+          console.log(formatSymbolMap(sym));
+          console.log('');
+          astSpinner.start('Extracting symbols...');
         }
       }
-
-      if (successCount > 0) {
-        const reduction =
-          totalRawTokens > 0
-            ? Math.round((1 - totalSymbolTokens / totalRawTokens) * 100)
-            : 0;
-
-        astSpinner.succeed(
-          chalk.green(`Symbols extracted (${successCount} file(s))`) +
-          chalk.dim(
-            ` · ${totalRawTokens} → ${totalSymbolTokens} tokens (${reduction}% compression)`
-          )
-        );
-      } else {
-        astSpinner.warn(chalk.yellow('No symbols extracted (unsupported file types?)'));
-      }
-
-      console.log('');
     }
 
-    // Remaining pipeline steps
-    console.log(chalk.dim('Next: Graph traversal → Context assembly'));
+    // Extract symbols from touched files (symbols only)
+    for (const f of traversal.touched) {
+      if (!fs.existsSync(f.path)) continue;
+      const sym = await extractSymbols(f.path);
+      if (sym) {
+        totalRawTokens += sym.rawTokenCount;
+        totalSymbolTokens += sym.tokenCount; // touched = symbols only
+        extractedCount++;
+
+        if (options.verbose) {
+          astSpinner.stop();
+          console.log(chalk.dim('─'.repeat(45)));
+          console.log(chalk.cyan(`TOUCHED  ${f.relativePath}`));
+          console.log(formatSymbolMap(sym));
+          console.log('');
+          astSpinner.start('Extracting symbols...');
+        }
+      }
+    }
+
+    // Summaries for ancestor files
+    for (const f of traversal.ancestors) {
+      if (!fs.existsSync(f.path)) continue;
+      const sym = await extractSymbols(f.path);
+      if (sym) {
+        totalRawTokens += sym.rawTokenCount;
+        totalSymbolTokens += 20; // ~1-line summary cost
+        extractedCount++;
+
+        if (options.verbose) {
+          astSpinner.stop();
+          console.log(chalk.dim('─'.repeat(45)));
+          console.log(chalk.dim(`ANCESTOR ${f.relativePath}`));
+          console.log(chalk.dim(`  ${generateSummary(sym)}`));
+          console.log('');
+          astSpinner.start('Extracting symbols...');
+        }
+      }
+    }
+
+    const savedTokens = totalRawTokens - totalSymbolTokens;
+    const reductionPct =
+      totalRawTokens > 0
+        ? Math.round((savedTokens / totalRawTokens) * 100)
+        : 0;
+    const multiple =
+      totalSymbolTokens > 0
+        ? (totalRawTokens / totalSymbolTokens).toFixed(1)
+        : '—';
+
+    astSpinner.succeed(chalk.green('Symbols extracted'));
+    console.log('');
+
+    // ── Summary ───────────────────────────────────────────────────
+    console.log(chalk.dim('─'.repeat(45)));
+    console.log(
+      `${chalk.bold('Before:')}  ${chalk.red(totalRawTokens.toLocaleString() + ' tokens')}  (full codebase)`
+    );
+    console.log(
+      `${chalk.bold('After: ')}  ${chalk.green(totalSymbolTokens.toLocaleString() + ' tokens')}  (delta only)`
+    );
+    console.log(
+      `${chalk.bold('Saved: ')}  ${chalk.cyan(savedTokens.toLocaleString() + ' tokens')}  ` +
+      chalk.dim(`(${reductionPct}% reduction · ${multiple}× fewer)`)
+    );
+    console.log(chalk.dim('─'.repeat(45)));
+    console.log('');
+    console.log(chalk.dim('Next: Context assembly → M1.5'));
 
   } finally {
     db.close();

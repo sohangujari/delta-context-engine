@@ -3,8 +3,13 @@ import fs from 'fs';
 import ora from 'ora';
 import path from 'path';
 import { saveConfig } from '../../../config/delta.config.js';
-import { DEFAULT_CONFIG, DELTA_DIR } from '../../../config/defaults.js';
+import { DEFAULT_CONFIG } from '../../../config/defaults.js';
+import { loadIgnorePatterns } from '../../../config/deltaignore.js';
+import { walkDirectory } from '../../../core/change-detector/hash-tracker.js';
+import { buildFullGraph } from '../../../core/graph/builder.js';
 import { DeltaDb } from '../../../persistence/delta-db.js';
+import { GraphStore } from '../../../persistence/graph-store.js';
+import { StateStore } from '../../../persistence/state-store.js';
 
 export async function initCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
@@ -20,7 +25,6 @@ export async function initCommand(projectRoot: string): Promise<void> {
   // Step 2: Initialize database
   const dbSpinner = ora('Initializing database...').start();
   const db = new DeltaDb(root);
-  db.close();
   dbSpinner.succeed(chalk.green('Database initialized'));
 
   // Step 3: Write default config
@@ -31,7 +35,52 @@ export async function initCommand(projectRoot: string): Promise<void> {
   // Step 4: Write .deltaignore
   writeDeltaIgnore(root);
 
-  // Step 5: .gitignore guidance
+  // Step 5: Index all files + build dependency graph
+  const ignorePatterns = loadIgnorePatterns(root);
+  const allFiles = walkDirectory(root, root, ignorePatterns);
+
+  console.log('');
+
+  const indexSpinner = ora(
+    `Indexing ${allFiles.length} files and building dependency graph...`
+  ).start();
+
+  const graphStore = new GraphStore(db.getDb());
+  const stateStore = new StateStore(db.getDb());
+
+  let lastPercent = 0;
+
+  const result = await buildFullGraph({
+    projectRoot: root,
+    allFiles,
+    graphStore,
+    stateStore,
+    onProgress: (done, total) => {
+      const percent = Math.floor((done / total) * 100);
+      if (percent >= lastPercent + 10) {
+        lastPercent = percent;
+        indexSpinner.text = `Indexing files and building graph... ${percent}%`;
+      }
+    },
+  });
+
+  if (result.errors.length > 0) {
+    indexSpinner.warn(
+      chalk.yellow(
+        `Indexed ${result.filesProcessed} files with ${result.errors.length} warning(s)`
+      )
+    );
+  } else {
+    indexSpinner.succeed(
+      chalk.green(
+        `Indexed ${result.filesProcessed} files · ${result.edgesCreated} dependency edges`
+      )
+    );
+  }
+
+  db.close();
+
+  // Step 6: .gitignore note
   printGitignoreNote(root);
 
   console.log(chalk.dim('─'.repeat(45)));
