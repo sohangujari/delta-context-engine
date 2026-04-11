@@ -123,26 +123,28 @@ function depthLabel(depth: number): number {
  */
 export function scoreAllFiles(
   traversal: TraversalResult,
-  semanticScores: Map<string, number>,   // filePath → semantic score
+  semanticScores: Map<string, number>,
   options: Partial<ScorerOptions> = {}
 ): RelevanceScore[] {
   const scores: RelevanceScore[] = [];
 
-  // Score changed files
+  // When no semantic scores available, use neutral defaults by depth
+  // depth=1 gets 0.5 (included via graph), depth=2 gets 0.3 (borderline)
+  const defaultByDepth = (depth: number): number =>
+    depth <= 1 ? 0.5 : 0.3;
+
   for (const f of traversal.changed) {
-    const semantic = semanticScores.get(f.path) ?? 0.5;
+    const semantic = semanticScores.get(f.path) ?? defaultByDepth(0);
     scores.push(scoreFile(f.path, f.relativePath, 0, semantic, options));
   }
 
-  // Score touched files (depth=1)
   for (const f of traversal.touched) {
-    const semantic = semanticScores.get(f.path) ?? 0.5;
+    const semantic = semanticScores.get(f.path) ?? defaultByDepth(1);
     scores.push(scoreFile(f.path, f.relativePath, 1, semantic, options));
   }
 
-  // Score ancestor files (depth=2)
   for (const f of traversal.ancestors) {
-    const semantic = semanticScores.get(f.path) ?? 0.3;
+    const semantic = semanticScores.get(f.path) ?? defaultByDepth(2);
     scores.push(scoreFile(f.path, f.relativePath, 2, semantic, options));
   }
 

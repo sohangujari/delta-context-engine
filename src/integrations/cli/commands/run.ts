@@ -103,10 +103,19 @@ export async function runCommand(
 
     if (queryResult.embeddingsAvailable) {
       semanticScoreMap = buildSemanticScoreMap(queryResult.scored);
+
+      const scores = queryResult.scored.map((s) => s.score);
+      const maxScore = scores.length > 0
+        ? Math.max(...scores).toFixed(2)
+        : '0.00';
+      const minScore = scores.length > 0
+        ? Math.min(...scores).toFixed(2)
+        : '0.00';
+
       semanticSpinner.succeed(
         chalk.green('Semantic scoring complete') +
         chalk.dim(
-          ` · ${queryResult.scored.length} files above threshold (${config.relevance.semanticThreshold})`
+          ` · ${queryResult.scored.length} files scored · range: ${minScore}–${maxScore} · threshold: ${config.relevance.semanticThreshold}`
         )
       );
     } else {
@@ -189,6 +198,13 @@ export async function runCommand(
     console.log(chalk.dim('─'.repeat(50)));
     console.log('');
 
+    // Build a lookup map: relativePath → absolute path → semantic score
+    const relativeToScore = new Map<string, number>();
+    for (const [absPath, score] of semanticScoreMap.entries()) {
+      const rel = path.relative(root, absPath);
+      relativeToScore.set(rel, score);
+    }
+
     // Manifest
     console.log(chalk.bold('Context Manifest:'));
     for (const f of payload.manifest.included) {
@@ -198,11 +214,7 @@ export async function runCommand(
                                            chalk.dim('·  ');
       const level  = chalk.dim(`(${f.compressionLevel})`);
       const tokens = chalk.dim(`${f.tokenCount} tok`);
-
-      // Show semantic score if available
-      const semScore = semanticScoreMap.get(
-        allFiles.find((p) => p.endsWith(f.relativePath)) ?? ''
-      );
+      const semScore = relativeToScore.get(f.relativePath);
       const scoreStr = semScore !== undefined
         ? chalk.dim(` sem=${semScore.toFixed(2)}`)
         : '';

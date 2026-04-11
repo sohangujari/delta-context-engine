@@ -23,7 +23,7 @@ export const DEFAULT_CONFIG = {
     resolveNodeModules: false,
   },
   relevance: {
-    semanticThreshold: 0.65,
+    semanticThreshold: 0.45,
     embeddingModel: 'nomic-embed-text',
     combineWithGraph: true,
   },
