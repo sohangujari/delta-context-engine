@@ -6,10 +6,15 @@ import { loadIgnorePatterns } from '../../../config/deltaignore.js';
 import { classifyFiles } from '../../../core/change-detector/state-classifier.js';
 import { walkDirectory } from '../../../core/change-detector/hash-tracker.js';
 import { traverseFromChanged } from '../../../core/graph/traverser.js';
+import { queryByTask } from '../../../core/embeddings/query.js';
+import { scoreAllFiles, buildSemanticScoreMap } from '../../../core/relevance/scorer.js';
+import { rankForContext, formatRelevanceScores } from '../../../core/relevance/ranker.js';
 import { assembleContext } from '../../../core/assembler/context-builder.js';
 import { DeltaDb } from '../../../persistence/delta-db.js';
 import { GraphStore } from '../../../persistence/graph-store.js';
 import { StateStore } from '../../../persistence/state-store.js';
+import { SymbolStore } from '../../../persistence/symbol-store.js';
+import { VectorStore } from '../../../core/embeddings/vector-store.js';
 
 export interface RunOptions {
   root: string;
@@ -34,6 +39,8 @@ export async function runCommand(
   const db = new DeltaDb(root);
   const stateStore = new StateStore(db.getDb());
   const graphStore = new GraphStore(db.getDb());
+  const symbolStore = new SymbolStore(db.getDb());
+  const vectorStore = new VectorStore(db.getDb());
   const ignorePatterns = loadIgnorePatterns(root);
 
   try {
@@ -73,20 +80,89 @@ export async function runCommand(
     graphSpinner.succeed(
       chalk.green('Dependency graph traced') +
       chalk.dim(
-        ` · depth=1: ${traversal.touched.length} files · depth=2: ${traversal.ancestors.length} files`
+        ` · depth=1: ${traversal.touched.length} · depth=2: ${traversal.ancestors.length}`
       )
     );
     console.log('');
 
-    // ── Step 3: Assemble context ──────────────────────────────────
-    const assembleSpinner = ora(`Assembling context (budget: ${tokenBudget} tokens)...`).start();
+    // ── Step 3: Semantic scoring ──────────────────────────────────
+    const semanticSpinner = ora('Scoring semantic relevance...').start();
+
+    const queryResult = await queryByTask(
+      {
+        task,
+        projectRoot: root,
+        threshold: config.relevance.semanticThreshold,
+      },
+      vectorStore,
+      symbolStore
+    );
+
+    let semanticScoreMap = new Map<string, number>();
+    let semanticNote = '';
+
+    if (queryResult.embeddingsAvailable) {
+      semanticScoreMap = buildSemanticScoreMap(queryResult.scored);
+      semanticSpinner.succeed(
+        chalk.green('Semantic scoring complete') +
+        chalk.dim(
+          ` · ${queryResult.scored.length} files above threshold (${config.relevance.semanticThreshold})`
+        )
+      );
+    } else {
+      semanticNote = queryResult.skippedReason ?? 'unavailable';
+      semanticSpinner.warn(
+        chalk.yellow('Semantic scoring skipped') +
+        chalk.dim(` · ${semanticNote}`)
+      );
+      semanticNote = ' (graph-only mode)';
+    }
+
+    console.log('');
+
+    // ── Step 4: Hybrid relevance ranking ─────────────────────────
+    const scores = scoreAllFiles(traversal, semanticScoreMap, {
+      semanticThreshold: config.relevance.semanticThreshold,
+      maxDepth: config.graph.maxDepth,
+    });
+    const ranked = rankForContext(scores);
+
+    if (options.verbose) {
+      console.log(chalk.dim(formatRelevanceScores(ranked, true)));
+      console.log('');
+    }
+
+    // ── Step 5: Assemble context ──────────────────────────────────
+    const assembleSpinner = ora(
+      `Assembling context (budget: ${tokenBudget} tokens)...`
+    ).start();
+
+    // Build a traversal-like object from ranked results
+    // so the assembler uses hybrid-scored files
+    const rankedTraversal = {
+      ...traversal,
+      touched: ranked.touched.map((s) => ({
+        path: s.filePath,
+        relativePath: s.relativePath,
+        state: 'TOUCHED' as const,
+        depth: 1,
+      })),
+      ancestors: ranked.ancestors.map((s) => ({
+        path: s.filePath,
+        relativePath: s.relativePath,
+        state: 'ANCESTOR' as const,
+        depth: 2,
+      })),
+    };
+
     const payload = await assembleContext({
       task,
-      traversal,
+      traversal: rankedTraversal,
       projectRoot: root,
       tokenBudget,
       allProjectFiles: allFiles,
     });
+
     assembleSpinner.succeed(chalk.green('Context assembled'));
     console.log('');
 
@@ -94,7 +170,7 @@ export async function runCommand(
     console.log(chalk.dim('─'.repeat(50)));
 
     const beforeBar = tokenBar(payload.savings.rawTokens, payload.savings.rawTokens, 20);
-    const afterBar = tokenBar(payload.savings.optimizedTokens, payload.savings.rawTokens, 20);
+    const afterBar  = tokenBar(payload.savings.optimizedTokens, payload.savings.rawTokens, 20);
 
     console.log(
       `${chalk.bold('Before:')}  ${chalk.red(beforeBar)} ${payload.savings.rawTokens.toLocaleString()}`
@@ -105,7 +181,8 @@ export async function runCommand(
     console.log(
       `${chalk.bold('Saved: ')}  ${chalk.cyan(payload.savings.savedTokens.toLocaleString() + ' tokens')}` +
       chalk.dim(
-        `  (${payload.savings.reductionPercent}% reduction · ${payload.savings.reductionMultiple}× fewer)`
+        `  (${payload.savings.reductionPercent}% reduction · ${payload.savings.reductionMultiple}× fewer)` +
+        semanticNote
       )
     );
 
@@ -121,7 +198,18 @@ export async function runCommand(
                                            chalk.dim('·  ');
       const level  = chalk.dim(`(${f.compressionLevel})`);
       const tokens = chalk.dim(`${f.tokenCount} tok`);
-      console.log(`  ${icon} ${f.relativePath.padEnd(45)} ${level} ${tokens}`);
+
+      // Show semantic score if available
+      const semScore = semanticScoreMap.get(
+        allFiles.find((p) => p.endsWith(f.relativePath)) ?? ''
+      );
+      const scoreStr = semScore !== undefined
+        ? chalk.dim(` sem=${semScore.toFixed(2)}`)
+        : '';
+
+      console.log(
+        `  ${icon} ${f.relativePath.padEnd(45)} ${level} ${tokens}${scoreStr}`
+      );
     }
 
     if (payload.manifest.excluded.length > 0 && options.verbose) {
@@ -140,13 +228,10 @@ export async function runCommand(
     console.log('');
     console.log(chalk.dim('─'.repeat(50)));
 
-    // Budget status line — honest about whether we're over
     const budgetUsed = payload.totalTokens;
     const budgetPct  = Math.round((budgetUsed / tokenBudget) * 100);
 
     if (budgetUsed > tokenBudget) {
-      // Changed files exceeded budget — this is expected and correct
-      // Changed files are always sent in full (PRD principle)
       console.log(
         chalk.bold(`Total: ${budgetUsed.toLocaleString()} tokens`) +
         chalk.dim(' (changed files exceed budget — increase with --budget)') +
@@ -161,10 +246,8 @@ export async function runCommand(
 
     if (options.verbose) {
       console.log('');
-      console.log(chalk.dim('─── Formatted Payload Preview ───'));
-      // Show first 600 chars to keep output readable
-      const preview = payload.formatted.slice(0, 600);
-      console.log(chalk.dim(preview + '\n...'));
+      console.log(chalk.dim('─── Payload Preview ───'));
+      console.log(chalk.dim(payload.formatted.slice(0, 600) + '\n...'));
     }
 
   } finally {
