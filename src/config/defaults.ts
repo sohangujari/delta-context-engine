@@ -38,6 +38,7 @@ export const DEFAULT_CONFIG = {
     'build/**',
     '.next/**',
     '.delta/**',
+    '.claude/**',
     '*.generated.ts',
     'coverage/**',
   ],
@@ -50,4 +51,3 @@ export const BUDGET_PRESETS = {
 } as const;
 
 export type BudgetPreset = keyof typeof BUDGET_PRESETS;
-// watch test

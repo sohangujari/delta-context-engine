@@ -56,4 +56,12 @@ program
     await watchCommand(options.root);
   });
 
+program
+  .command('mcp')
+  .description('Start Delta MCP server for Claude Code integration')
+  .action(async () => {
+    // mcp-server.ts runs itself on import — starts the stdio server
+    await import('../../integrations/claude-code/mcp-server.js');
+  });
+
 program.parse();
