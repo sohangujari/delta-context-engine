@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { runCommand } from './commands/run.js';
 import { statsCommand } from './commands/stats.js';
+import { watchCommand } from './commands/watch.js';
 
 const program = new Command();
 
@@ -45,6 +46,14 @@ program
   .option('--root <path>', 'Project root directory', process.cwd())
   .action(async (options: { root: string }) => {
     await statsCommand(options.root);
+  });
+
+program
+  .command('watch')
+  .description('Watch for file changes and update index automatically')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .action(async (options: { root: string }) => {
+    await watchCommand(options.root);
   });
 
 program.parse();
