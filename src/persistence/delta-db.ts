@@ -62,13 +62,14 @@ const SCHEMA = `
 
   -- Task records
   CREATE TABLE IF NOT EXISTS task_records (
-    task_id           TEXT PRIMARY KEY,
-    session_id        TEXT NOT NULL,
-    instruction       TEXT NOT NULL,
-    raw_tokens        INTEGER NOT NULL DEFAULT 0,
-    optimized_tokens  INTEGER NOT NULL DEFAULT 0,
-    saved_tokens      INTEGER NOT NULL DEFAULT 0,
-    completed_at      TEXT NOT NULL,
+    task_id             TEXT PRIMARY KEY,
+    session_id          TEXT NOT NULL,
+    instruction         TEXT NOT NULL,
+    raw_tokens          INTEGER NOT NULL DEFAULT 0,
+    optimized_tokens    INTEGER NOT NULL DEFAULT 0,
+    saved_tokens        INTEGER NOT NULL DEFAULT 0,
+    reduction_percent   INTEGER NOT NULL DEFAULT 0,
+    completed_at        TEXT NOT NULL,
     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
   );
 

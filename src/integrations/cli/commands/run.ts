@@ -16,6 +16,7 @@ import { StateStore } from '../../../persistence/state-store.js';
 import { SymbolStore } from '../../../persistence/symbol-store.js';
 import { VectorStore } from '../../../core/embeddings/vector-store.js';
 import { isCursorProject, updateCursorContext } from '../../../integrations/cursor/context-writer.js';
+import { SessionManager } from '../../../core/session/session-manager.js';
 
 export interface RunOptions {
   root: string;
@@ -172,6 +173,13 @@ export async function runCommand(
       tokenBudget,
       allProjectFiles: allFiles,
     });
+
+    const sessionManager = new SessionManager(db.getDb());
+      sessionManager.recordTask(
+        task,
+        payload.savings.rawTokens,
+        payload.savings.optimizedTokens
+      );
 
     assembleSpinner.succeed(chalk.green('Context assembled'));
     console.log('');

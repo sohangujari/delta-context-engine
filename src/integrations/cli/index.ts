@@ -6,6 +6,7 @@ import { runCommand } from './commands/run.js';
 import { statsCommand } from './commands/stats.js';
 import { watchCommand } from './commands/watch.js';
 import { cursorInitCommand } from './commands/cursor-init.js';
+import { reportCommand } from './commands/report.js';
 
 const program = new Command();
 
@@ -71,5 +72,20 @@ program
   .action(async () => {
     await import('../../integrations/claude-code/mcp-server.js');
   });
+
+program
+  .command('report')
+  .description('Show session report and token savings')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .option('--markdown', 'Export report as Markdown to .delta/reports/')
+  .option('--weekly', 'Show weekly summary only')
+  .action(
+    async (options: { root: string; markdown?: boolean; weekly?: boolean }) => {
+      await reportCommand(options.root, {
+        ...(options.markdown !== undefined && { markdown: options.markdown }),
+        ...(options.weekly !== undefined && { weekly: options.weekly }),
+      });
+    }
+  );
 
 program.parse();
