@@ -5,6 +5,7 @@ import { initCommand } from './commands/init.js';
 import { runCommand } from './commands/run.js';
 import { statsCommand } from './commands/stats.js';
 import { watchCommand } from './commands/watch.js';
+import { cursorInitCommand } from './commands/cursor-init.js';
 
 const program = new Command();
 
@@ -57,10 +58,17 @@ program
   });
 
 program
+  .command('cursor-init')
+  .description('Set up Delta integration for Cursor editor')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .action(async (options: { root: string }) => {
+    await cursorInitCommand(options.root);
+  });
+
+program
   .command('mcp')
   .description('Start Delta MCP server for Claude Code integration')
   .action(async () => {
-    // mcp-server.ts runs itself on import — starts the stdio server
     await import('../../integrations/claude-code/mcp-server.js');
   });
 

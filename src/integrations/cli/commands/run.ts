@@ -15,6 +15,7 @@ import { GraphStore } from '../../../persistence/graph-store.js';
 import { StateStore } from '../../../persistence/state-store.js';
 import { SymbolStore } from '../../../persistence/symbol-store.js';
 import { VectorStore } from '../../../core/embeddings/vector-store.js';
+import { isCursorProject, updateCursorContext } from '../../../integrations/cursor/context-writer.js';
 
 export interface RunOptions {
   root: string;
@@ -234,6 +235,13 @@ export async function runCommand(
         console.log(
           chalk.dim(`  ... and ${payload.manifest.excluded.length - 5} more`)
         );
+      }
+    }
+
+    if (isCursorProject(root)) {
+      const cursorResult = updateCursorContext(root, payload.formatted);
+      if (cursorResult.written) {
+        console.log(chalk.dim('∆ Cursor context updated: .delta/cursor-context.md'));
       }
     }
 
