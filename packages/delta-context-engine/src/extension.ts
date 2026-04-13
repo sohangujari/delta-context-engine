@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { DeltaStatusBar } from './status-bar';
 import { DeltaManifestProvider } from './manifest-provider';
 import { DeltaStatsProvider } from './stats-provider';
@@ -80,13 +81,18 @@ export function activate(context: vscode.ExtensionContext): void {
             manifestProvider.update(result.payload.manifest);
             statsProvider.refresh();
 
-            const doc = await vscode.workspace.openTextDocument({
-              content: result.payload.formatted,
-              language: 'markdown',
-            });
+            const outputPath = vscode.Uri.file(
+              path.join(workspaceRoot, '.delta', 'last-context.md')
+            );
+            await vscode.workspace.fs.writeFile(
+              outputPath,
+              Buffer.from(result.payload.formatted, 'utf-8')
+            );
+            const doc = await vscode.workspace.openTextDocument(outputPath);
             await vscode.window.showTextDocument(doc, {
               preview: true,
               viewColumn: vscode.ViewColumn.Beside,
+              preserveFocus: true,
             });
 
             vscode.window.showInformationMessage(

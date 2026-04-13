@@ -20,8 +20,10 @@ coverage/**
 # Delta internal
 .delta/**
 
-# VS Code extension package
+# VS Code extension package (entire packages/ directory)
 packages/**
+packages/delta-context-engine/**
+packages/delta-context-engine/src/**
 
 # Config files
 .claude/**

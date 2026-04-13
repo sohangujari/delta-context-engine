@@ -52,4 +52,4 @@ export const BUDGET_PRESETS = {
   thorough: 8000,
 } as const;
 
-export type BudgetPreset = keyof typeof BUDGET_PRESETS;
+export type BudgetPreset = keyof typeof BUDGET_PRESETS;// trigger change
