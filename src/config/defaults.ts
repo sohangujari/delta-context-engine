@@ -34,11 +34,13 @@ export const DEFAULT_CONFIG = {
   },
   ignore: [
     'node_modules/**',
+    '**/node_modules/**',
     'dist/**',
     'build/**',
     '.next/**',
     '.delta/**',
     '.claude/**',
+    'packages/**',
     '*.generated.ts',
     'coverage/**',
   ],

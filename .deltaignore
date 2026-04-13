@@ -1,8 +1,8 @@
 # Delta ignore patterns
-# These extend .gitignore for Delta-specific exclusions
 
 # Dependencies
 node_modules/**
+**/node_modules/**
 
 # Build outputs
 dist/**
@@ -19,3 +19,9 @@ coverage/**
 
 # Delta internal
 .delta/**
+
+# VS Code extension package
+packages/**
+
+# Config files
+.claude/**

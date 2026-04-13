@@ -1,0 +1,140 @@
+{
+  "name": "delta-context-engine",
+  "displayName": "∆ Delta Context Engine",
+  "description": "Reduce AI coding token usage by 85%. Only send what changed.",
+  "version": "0.1.0",
+  "publisher": "delta-ctx",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "claude",
+    "ai",
+    "tokens",
+    "context",
+    "mcp",
+    "copilot"
+  ],
+  "activationEvents": [
+    "workspaceContains:.delta/config.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "delta.init",
+        "title": "∆ Delta: Initialize Project"
+      },
+      {
+        "command": "delta.run",
+        "title": "∆ Delta: Run Task"
+      },
+      {
+        "command": "delta.stats",
+        "title": "∆ Delta: Show Stats"
+      },
+      {
+        "command": "delta.watch",
+        "title": "∆ Delta: Start Watch Mode"
+      },
+      {
+        "command": "delta.stopWatch",
+        "title": "∆ Delta: Stop Watch Mode"
+      },
+      {
+        "command": "delta.refresh",
+        "title": "∆ Delta: Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "delta-sidebar",
+          "title": "∆ Delta",
+          "icon": "images/delta-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "delta-sidebar": [
+        {
+          "id": "delta.taskView",
+          "name": "Current Task",
+          "type": "webview"
+        },
+        {
+          "id": "delta.manifestView",
+          "name": "Context Manifest",
+          "type": "tree"
+        },
+        {
+          "id": "delta.statsView",
+          "name": "Session Stats",
+          "type": "tree"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Delta Context Engine",
+      "properties": {
+        "delta.tokenBudget": {
+          "type": "number",
+          "default": 2000,
+          "description": "Default token budget per task"
+        },
+        "delta.autoWatch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start watch mode when workspace opens"
+        },
+        "delta.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show token count in status bar"
+        },
+        "delta.ollamaUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama API URL for embeddings"
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "delta.refresh",
+          "when": "view == delta.manifestView",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "ts-loader": "^9.5.4",
+    "webpack": "^5.105.3",
+    "webpack-cli": "^6.0.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
