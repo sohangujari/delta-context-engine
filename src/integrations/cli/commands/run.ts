@@ -17,6 +17,7 @@ import { SymbolStore } from '../../../persistence/symbol-store.js';
 import { VectorStore } from '../../../core/embeddings/vector-store.js';
 import { isCursorProject, updateCursorContext } from '../../../integrations/cursor/context-writer.js';
 import { SessionManager } from '../../../core/session/session-manager.js';
+import { loadOverrides, clearOverrides } from './include.js';
 
 export interface RunOptions {
   root: string;
@@ -69,6 +70,20 @@ export async function runCommand(
       console.log(`  ${chalk.yellow('●')} ${f.relativePath}`);
     }
     console.log('');
+
+    // Load overrides for this run
+    const overrides = loadOverrides(root);
+
+    if (overrides.include.length > 0 || overrides.exclude.length > 0) {
+      console.log(chalk.dim('Overrides active:'));
+      if (overrides.include.length > 0) {
+        console.log(chalk.dim(`  force-include: ${overrides.include.join(', ')}`));
+      }
+      if (overrides.exclude.length > 0) {
+        console.log(chalk.dim(`  force-exclude: ${overrides.exclude.join(', ')}`));
+      }
+      console.log('');
+    }
 
     // ── Step 2: Graph traversal ───────────────────────────────────
     const graphSpinner = ora('Tracing dependency graph...').start();
@@ -172,6 +187,7 @@ export async function runCommand(
       projectRoot: root,
       tokenBudget,
       allProjectFiles: allFiles,
+      overrides,
     });
 
     const sessionManager = new SessionManager(db.getDb());
@@ -279,6 +295,7 @@ export async function runCommand(
     }
 
   } finally {
+    clearOverrides(root);
     db.close();
   }
 }

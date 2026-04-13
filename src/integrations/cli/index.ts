@@ -7,6 +7,8 @@ import { statsCommand } from './commands/stats.js';
 import { watchCommand } from './commands/watch.js';
 import { cursorInitCommand } from './commands/cursor-init.js';
 import { reportCommand } from './commands/report.js';
+import { includeCommand } from './commands/include.js';
+import { excludeCommand } from './commands/exclude.js';
 
 const program = new Command();
 
@@ -88,4 +90,21 @@ program
     }
   );
 
+program
+  .command('include <file>')
+  .description('Force-add a file to the next context payload')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .action(async (file: string, options: { root: string }) => {
+    await includeCommand(file, options.root);
+  });
+
+program
+  .command('exclude <file>')
+  .description('Force-remove a file from the next context payload')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .action(async (file: string, options: { root: string }) => {
+    await excludeCommand(file, options.root);
+  });
+
+// Must be last — parses argv and dispatches to registered commands
 program.parse();

@@ -60,6 +60,10 @@ export interface AssembleOptions {
   projectRoot: string;
   tokenBudget: number;
   allProjectFiles: string[];
+  overrides?: {
+    include: string[];
+    exclude: string[];
+  };
 }
 
 /**
@@ -108,6 +112,38 @@ export async function assembleContext(
       compressionLevel: 'full',
       tokenCount: compressed.tokenCount,
       reason: 'CHANGED (depth=0)',
+    });
+  }
+
+  // Apply overrides
+const excludeSet = new Set(
+  (options.overrides?.exclude ?? []).map((p) =>
+    path.resolve(projectRoot, p)
+  )
+);
+
+  // Filter excluded files from all slots
+  const isExcluded = (filePath: string): boolean => excludeSet.has(filePath);
+
+  // Force-include files — add as full content if not already present
+  const alreadyIncluded = new Set(changedFiles.map((f) => f.path));
+  const forceInclude = (options.overrides?.include ?? [])
+    .map((p) => path.resolve(projectRoot, p))
+    .filter((p) => !alreadyIncluded.has(p) && fs.existsSync(p));
+
+  for (const filePath of forceInclude) {
+    const rawContent = fs.readFileSync(filePath, 'utf-8');
+    const compressed = compressFull(
+      filePath,
+      path.relative(projectRoot, filePath),
+      rawContent
+    );
+    changedFiles.push(compressed);
+    manifest.included.push({
+      relativePath: path.relative(projectRoot, filePath),
+      compressionLevel: 'full',
+      tokenCount: compressed.tokenCount,
+      reason: 'FORCE-INCLUDED (delta include)',
     });
   }
 
@@ -162,13 +198,21 @@ export async function assembleContext(
     }
   }
 
+  // Filter excluded files
+  const touchedFilesFiltered = touchedFiles.filter(
+    (f) => !isExcluded(f.path)
+  );
+  const ancestorFilesFiltered = ancestorFiles.filter(
+    (f) => !isExcluded(f.path)
+  );
+
   // ── Budget enforcement + compression cascade ──────────────────────────────
   const slots = await fitToBudget({
     task: taskContent,
     taskTokens,
     changedFiles,
-    touchedFiles,
-    ancestorFiles,
+    touchedFiles: touchedFilesFiltered,
+    ancestorFiles: ancestorFilesFiltered,
     skeletonContent,
     skeletonTokens,
     tokenBudget,
