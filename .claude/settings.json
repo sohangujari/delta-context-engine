@@ -3,7 +3,7 @@
     "delta": {
       "command": "node",
       "args": ["dist/integrations/claude-code/mcp-server.js"],
-      "description": "Delta Context Engine — optimized context per task"
+      "description": "Delta Context Engine - optimized context per task"
     }
   }
 }

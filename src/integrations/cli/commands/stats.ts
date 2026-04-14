@@ -8,7 +8,7 @@ import { VectorStore } from '../../../core/embeddings/vector-store.js';
 export async function statsCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
 
-  console.log(chalk.bold('\n∆ Delta — Index Stats'));
+  console.log(chalk.bold('\n∆ Delta - Index Stats'));
   console.log(chalk.dim('─'.repeat(45)));
 
   const db = new DeltaDb(root);

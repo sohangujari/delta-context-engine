@@ -23,7 +23,7 @@ export function autoEscalateBudget(
   config: DeltaConfig
 ): EscalationResult {
   // Check if auto-escalation is disabled
-  // We read from config — default is enabled
+  // We read from config - default is enabled
   const autoEscalate =
     (config as unknown as { budget: { autoEscalate?: boolean } })
       .budget?.autoEscalate ?? true;
@@ -43,7 +43,7 @@ export function autoEscalateBudget(
       originalBudget: configuredBudget,
       finalBudget: configuredBudget,
       escalated: false,
-      reason: `${changedFileCount} file(s) changed — within normal range`,
+      reason: `${changedFileCount} file(s) changed - within normal range`,
     };
   }
 

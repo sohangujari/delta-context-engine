@@ -36,7 +36,7 @@ export function resolveImport(
   // Node built-ins
   if (importSource.startsWith('node:')) return null;
 
-  // Relative imports — resolve normally
+  // Relative imports - resolve normally
   if (importSource.startsWith('.')) {
     return resolveRelative(importSource, fromFile);
   }
@@ -49,7 +49,7 @@ export function resolveImport(
     if (resolved) return resolved;
   }
 
-  // External package — skip
+  // External package - skip
   return null;
 }
 
@@ -65,7 +65,7 @@ function resolveRelative(importSource: string, fromFile: string): string | null 
     return rawResolved;
   }
 
-  // Strip .js — TypeScript uses .js in imports but files are .ts
+  // Strip .js - TypeScript uses .js in imports but files are .ts
   const withoutJs = rawResolved.replace(/\.js$/, '');
 
   for (const ext of RESOLUTION_ORDER) {

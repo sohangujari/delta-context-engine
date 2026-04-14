@@ -49,7 +49,7 @@ export async function embed(
       dimensions: data.embedding.length,
     };
   } catch (err) {
-    // Ollama not running — fail silently, pipeline continues without embeddings
+    // Ollama not running - fail silently, pipeline continues without embeddings
     if (isConnectionError(err)) {
       return null;
     }

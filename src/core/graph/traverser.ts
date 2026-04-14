@@ -48,7 +48,7 @@ export function traverseFromChanged(
       const deps = graphStore.getDependencies(filePath);
 
       // Also get files that import THIS file (dependents/consumers)
-      // This catches cases where login.ts imports auth.ts — we want
+      // This catches cases where login.ts imports auth.ts - we want
       // both directions so auth.ts is marked as touched
       const dependents = graphStore.getDependents(filePath);
 
@@ -56,7 +56,7 @@ export function traverseFromChanged(
 
       for (const neighbor of neighbors) {
         if (files.has(neighbor)) {
-          // Already classified at an equal or lower depth — skip
+          // Already classified at an equal or lower depth - skip
           const existing = files.get(neighbor)!;
           if (existing.depth <= depth) continue;
         }

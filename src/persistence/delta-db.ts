@@ -33,7 +33,7 @@ const SCHEMA = `
   );
 
   -- Dependency graph edges
-  -- No FK constraint — edges can reference files outside the index
+  -- No FK constraint - edges can reference files outside the index
   CREATE TABLE IF NOT EXISTS graph_edges (
     from_path  TEXT NOT NULL,
     to_path    TEXT NOT NULL,

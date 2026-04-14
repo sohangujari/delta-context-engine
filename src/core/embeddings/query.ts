@@ -22,7 +22,7 @@ export interface QueryResult {
 /**
  * Embed the task instruction and rank all indexed files by semantic relevance.
  * Layer 2 of the Delta pipeline.
- * Fails gracefully — if Ollama is down, pipeline continues without embeddings.
+ * Fails gracefully - if Ollama is down, pipeline continues without embeddings.
  */
 export async function queryByTask(
   options: QueryOptions,

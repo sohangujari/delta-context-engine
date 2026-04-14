@@ -70,11 +70,11 @@ export interface AssembleOptions {
  * Core context assembly pipeline.
  *
  * Priority stack:
- *   SLOT 1 (priority=1): Task instruction        — always included
- *   SLOT 2 (priority=2): Changed files, full     — always included
- *   SLOT 3 (priority=3): Touched files, symbols  — include until budget
- *   SLOT 4 (priority=4): Ancestor files, summary — include until budget
- *   SLOT 5 (priority=5): Project skeleton        — include if budget allows
+ *   SLOT 1 (priority=1): Task instruction        - always included
+ *   SLOT 2 (priority=2): Changed files, full     - always included
+ *   SLOT 3 (priority=3): Touched files, symbols  - include until budget
+ *   SLOT 4 (priority=4): Ancestor files, summary - include until budget
+ *   SLOT 5 (priority=5): Project skeleton        - include if budget allows
  *
  * Compression cascade if budget exceeded:
  *   Step 1: Downgrade touched from symbols → summary
@@ -125,7 +125,7 @@ const excludeSet = new Set(
   // Filter excluded files from all slots
   const isExcluded = (filePath: string): boolean => excludeSet.has(filePath);
 
-  // Force-include files — add as full content if not already present
+  // Force-include files - add as full content if not already present
   const alreadyIncluded = new Set(changedFiles.map((f) => f.path));
   const forceInclude = (options.overrides?.include ?? [])
     .map((p) => path.resolve(projectRoot, p))

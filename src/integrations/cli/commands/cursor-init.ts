@@ -6,7 +6,7 @@ import { setupCursorIntegration } from '../../cursor/rules-injector.js';
 export async function cursorInitCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
 
-  console.log(chalk.bold('\n∆ Delta — Cursor Integration'));
+  console.log(chalk.bold('\n∆ Delta - Cursor Integration'));
   console.log(chalk.dim('─'.repeat(45)));
 
   // Check Delta is initialized
@@ -22,7 +22,7 @@ export async function cursorInitCommand(projectRoot: string): Promise<void> {
   if (result.cursorDetected) {
     console.log(chalk.green('✓ Cursor project detected (.cursor/ exists)'));
   } else {
-    console.log(chalk.yellow('⚠ No .cursor/ directory found — created it'));
+    console.log(chalk.yellow('⚠ No .cursor/ directory found - created it'));
     console.log(chalk.dim('  Install Cursor from: https://cursor.sh'));
   }
 

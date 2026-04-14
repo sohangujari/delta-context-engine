@@ -16,7 +16,7 @@ export function loadConfig(projectRoot: string): DeltaConfig {
     const parsed = JSON.parse(raw) as Partial<DeltaConfig>;
     return deepMerge(DEFAULT_CONFIG, parsed);
   } catch {
-    console.warn('⚠ Could not parse .delta/config.json — using defaults');
+    console.warn('⚠ Could not parse .delta/config.json - using defaults');
     return DEFAULT_CONFIG;
   }
 }

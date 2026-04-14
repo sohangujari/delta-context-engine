@@ -33,10 +33,10 @@ const DEFAULT_OPTIONS: ScorerOptions = {
  */
 function graphDepthToScore(depth: number): number {
   switch (depth) {
-    case 0:   return 1.0;   // CHANGED — always include
-    case 1:   return 0.8;   // TOUCHED — strong signal
-    case 2:   return 0.5;   // ANCESTOR — moderate signal
-    default:  return 0.0;   // UNRELATED — exclude
+    case 0:   return 1.0;   // CHANGED - always include
+    case 1:   return 0.8;   // TOUCHED - strong signal
+    case 2:   return 0.5;   // ANCESTOR - moderate signal
+    default:  return 0.0;   // UNRELATED - exclude
   }
 }
 
@@ -59,7 +59,7 @@ export function scoreFile(
 ): RelevanceScore {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  // Changed files always included — no scoring needed
+  // Changed files always included - no scoring needed
   if (depth === 0) {
     return {
       filePath,
@@ -69,11 +69,11 @@ export function scoreFile(
       finalScore: 1.0,
       depth,
       included: true,
-      reason: 'CHANGED (depth=0) — always included',
+      reason: 'CHANGED (depth=0) - always included',
     };
   }
 
-  // Depth beyond maxDepth — always excluded regardless of semantic score
+  // Depth beyond maxDepth - always excluded regardless of semantic score
   if (depth > opts.maxDepth) {
     return {
       filePath,
@@ -87,13 +87,13 @@ export function scoreFile(
     };
   }
 
-  // Depth 1 or 2 — weighted combination
+  // Depth 1 or 2 - weighted combination
   const graphScore = graphDepthToScore(depthLabel(depth));
   const finalScore =
     semanticScore * opts.semanticWeight + graphScore * opts.graphWeight;
 
   // Include if final score is above threshold OR if it's a direct dep (depth=1)
-  // Direct deps (depth=1) are always included — they're imported by changed code
+  // Direct deps (depth=1) are always included - they're imported by changed code
   const included = depth === 1 || finalScore >= opts.semanticThreshold;
 
   const reason = included

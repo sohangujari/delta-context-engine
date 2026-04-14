@@ -17,7 +17,7 @@ import { checkOllamaAvailable } from '../../../core/embeddings/embedder.js';
 export async function repairCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
 
-  console.log(chalk.bold('\n∆ Delta — Index Repair'));
+  console.log(chalk.bold('\n∆ Delta - Index Repair'));
   console.log(chalk.dim('─'.repeat(45)));
 
   // Check .delta/ exists
@@ -105,7 +105,7 @@ export async function repairCommand(projectRoot: string): Promise<void> {
       } catch (err) {
         errors++;
         repairLog.push(
-          `error: ${path.relative(root, record.path)} — ${err instanceof Error ? err.message : String(err)}`
+          `error: ${path.relative(root, record.path)} - ${err instanceof Error ? err.message : String(err)}`
         );
       }
     }
@@ -124,7 +124,7 @@ export async function repairCommand(projectRoot: string): Promise<void> {
 
     if (totalRepaired === 0 && errors === 0) {
       console.log('');
-      console.log(chalk.green('✓ Index is healthy — no repairs needed'));
+      console.log(chalk.green('✓ Index is healthy - no repairs needed'));
     } else {
       console.log('');
 
@@ -166,7 +166,7 @@ export async function repairCommand(projectRoot: string): Promise<void> {
       );
 
       if (errors > 0) {
-        console.log(chalk.yellow(`⚠ ${errors} error(s) — check file permissions`));
+        console.log(chalk.yellow(`⚠ ${errors} error(s) - check file permissions`));
       }
     }
 

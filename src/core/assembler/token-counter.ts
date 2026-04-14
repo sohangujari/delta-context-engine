@@ -6,7 +6,7 @@ let encoding: ReturnType<typeof encodingForModel> | null = null;
 
 function getEncoding(): ReturnType<typeof encodingForModel> {
   if (!encoding) {
-    encoding = encodingForModel('gpt-4');  // cl100k_base — same as Claude
+    encoding = encodingForModel('gpt-4');  // cl100k_base - same as Claude
   }
   return encoding;
 }
@@ -30,6 +30,6 @@ export function countTokensForFiles(
 }
 
 export function estimateTokens(text: string): number {
-  // Fast approximation without encoding — use for non-critical estimates
+  // Fast approximation without encoding - use for non-critical estimates
   return Math.ceil(text.length / 4);
 }// touch

@@ -16,7 +16,7 @@ const program = new Command();
 
 program
   .name('delta')
-  .description('∆ Delta Context Engine — Only send what changed.')
+  .description('∆ Delta Context Engine - Only send what changed.')
   .version('0.1.0');
 
 program
@@ -135,5 +135,5 @@ program
     }
   );
 
-// Must be last — parses argv and dispatches to registered commands
+// Must be last - parses argv and dispatches to registered commands
 program.parse();

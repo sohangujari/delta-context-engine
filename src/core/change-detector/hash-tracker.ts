@@ -78,7 +78,7 @@ export function detectChangedByHash(
 
     const storedHash = getStoredHash(filePath);
     if (storedHash === null) {
-      // New file — never seen before
+      // New file - never seen before
       changed.push(filePath);
       continue;
     }

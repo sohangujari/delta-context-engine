@@ -37,7 +37,7 @@ const SUPPORTED_EXTENSIONS = new Set([
  * On every save: re-index the file (AST + graph edges + embedding).
  * Target: <6s per file update (PRD NFR-P2).
  *
- * Returns a stop function — call it to shut down the watcher.
+ * Returns a stop function - call it to shut down the watcher.
  */
 export function startWatcher(options: WatcherOptions): () => Promise<void> {
   const {
@@ -53,7 +53,7 @@ export function startWatcher(options: WatcherOptions): () => Promise<void> {
   const ignorePatterns = loadIgnorePatterns(projectRoot);
 
   // Build chokidar ignore list
-  // chokidar expects functions or regex — convert our glob patterns
+  // chokidar expects functions or regex - convert our glob patterns
   const ignored = [
     /(^|[/\\])\../,          // dot files
     /node_modules/,
@@ -73,7 +73,7 @@ export function startWatcher(options: WatcherOptions): () => Promise<void> {
     },
   });
 
-  // Debounce map — prevent rapid successive updates to same file
+  // Debounce map - prevent rapid successive updates to same file
   const pendingUpdates = new Map<string, ReturnType<typeof setTimeout>>();
 
   function scheduleUpdate(filePath: string, eventType: 'add' | 'change'): void {
@@ -138,7 +138,7 @@ export function startWatcher(options: WatcherOptions): () => Promise<void> {
           vectorStore
         );
       } catch {
-        // Embedding failure is non-fatal — AST index still updated
+        // Embedding failure is non-fatal - AST index still updated
       }
 
       const durationMs = Date.now() - start;

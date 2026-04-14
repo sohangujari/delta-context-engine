@@ -59,7 +59,7 @@ export async function runCommand(
         chalk.dim(` (${classification.strategy} · ${allFiles.length} files)`)
       );
       console.log('');
-      console.log(chalk.dim('Nothing changed — context identical to last task.'));
+      console.log(chalk.dim('Nothing changed - context identical to last task.'));
       return;
     }
 
@@ -293,7 +293,7 @@ export async function runCommand(
     if (budgetUsed > effectiveBudget) {
       console.log(
         chalk.bold(`Total: ${budgetUsed.toLocaleString()} tokens`) +
-        chalk.dim(' (changed files exceed budget — increase with --budget)') +
+        chalk.dim(' (changed files exceed budget - increase with --budget)') +
         chalk.dim(`\n  Hint: try --budget ${Math.ceil(budgetUsed / 1000) * 1000}`)
       );
     } else {

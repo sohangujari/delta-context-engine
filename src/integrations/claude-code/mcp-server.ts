@@ -100,7 +100,7 @@ async function runMcpServer(): Promise<void> {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    // args can be undefined if no arguments passed — default to empty object
+    // args can be undefined if no arguments passed - default to empty object
     const safeArgs: Record<string, unknown> = args ?? {};
 
     if (name === 'get_optimized_context') {
@@ -233,7 +233,7 @@ async function handleGetOptimizedContext(
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
 
-    // Never crash Claude Code — return a safe fallback message
+    // Never crash Claude Code - return a safe fallback message
     return {
       content: [{
         type: 'text',

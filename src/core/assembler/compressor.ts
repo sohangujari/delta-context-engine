@@ -79,6 +79,6 @@ export function downgrade(
   if (file.compressionLevel === 'symbols') {
     return compressToSummary(file.path, file.relativePath, symbolMap);
   }
-  // Already at summary or excluded — nothing to downgrade to
+  // Already at summary or excluded - nothing to downgrade to
   return { ...file, compressionLevel: 'excluded', content: '', tokenCount: 0 };
 }

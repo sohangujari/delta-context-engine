@@ -49,6 +49,6 @@ export function generateSummary(symbolMap: SymbolMap): string {
     parts.push(`types: ${typeNames}`);
   }
 
-  const detail = parts.length > 0 ? ` — ${parts.join(' · ')}` : '';
+  const detail = parts.length > 0 ? ` - ${parts.join(' · ')}` : '';
   return `${fileName}${detail}`;
 }

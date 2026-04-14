@@ -10,7 +10,7 @@ Delta is an open-source context intelligence engine that sits between your edito
 
 ## The Problem
 
-Every AI coding task today sends your entire codebase to Claude — even when only one file changed.
+Every AI coding task today sends your entire codebase to Claude - even when only one file changed.
 
 ```
 EVERY TASK WITHOUT DELTA:
@@ -88,15 +88,15 @@ Context Manifest:
 
 Delta runs a 4-layer pipeline on every task:
 
-### Layer 1 — Change Detection
+### Layer 1 - Change Detection
 
 Detects which files changed since your last task using `git diff`. Falls back to SHA-256 hash comparison if not a git repo.
 
-### Layer 2 — AST Symbol Extraction
+### Layer 2 - AST Symbol Extraction
 
-Parses every file with tree-sitter and extracts function signatures, imports, exports, and types — without bodies. A 1,800-token file becomes a 120-token symbol map.
+Parses every file with tree-sitter and extracts function signatures, imports, exports, and types - without bodies. A 1,800-token file becomes a 120-token symbol map.
 
-### Layer 3 — Dependency Graph
+### Layer 3 - Dependency Graph
 
 Traces the import chain from your changed file outward:
 
@@ -108,9 +108,9 @@ depth=2  config/env.ts      → 1-line summary
 depth=3+ payments/...       → excluded entirely
 ```
 
-### Layer 4 — Context Assembly
+### Layer 4 - Context Assembly
 
-Packs everything into a hard token budget using a priority stack. Never exceeds the budget — compresses further before breaking the limit.
+Packs everything into a hard token budget using a priority stack. Never exceeds the budget - compresses further before breaking the limit.
 
 ```
 SLOT 1  Task instruction     200 tokens  always included
@@ -208,7 +208,7 @@ Add to `.claude/settings.json` in your project:
     "delta": {
       "command": "npx",
       "args": ["delta-ctx", "mcp"],
-      "description": "Delta Context Engine — optimized context per task"
+      "description": "Delta Context Engine - optimized context per task"
     }
   }
 }
@@ -345,7 +345,7 @@ delta report
 ```
 
 ```
-∆ Delta — Session Report
+∆ Delta - Session Report
 ─────────────────────────────────────────────
 This Week
   Tasks completed:   89
@@ -444,7 +444,7 @@ src/
 
 ## License
 
-MIT — see LICENSE
+MIT - see LICENSE
 
 ## Contributing
 
@@ -459,7 +459,7 @@ npm run lint       # ESLint
 ---
 
 <p align="center">
-  <strong>∆ Delta — Only send what changed.</strong><br>
-  <sub>In mathematics, delta (∆) is the symbol for change — the difference between two states.<br>
+  <strong>∆ Delta - Only send what changed.</strong><br>
+  <sub>In mathematics, delta (∆) is the symbol for change - the difference between two states.<br>
   That is exactly what this product sends to Claude: not the whole codebase, just the delta.</sub>
 </p>

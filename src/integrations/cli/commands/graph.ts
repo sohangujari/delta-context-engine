@@ -19,7 +19,7 @@ export async function graphCommand(
   const absPath = path.resolve(root, filePath);
   const relPath = path.relative(root, absPath);
 
-  console.log(chalk.bold('\n∆ Delta — Dependency Graph'));
+  console.log(chalk.bold('\n∆ Delta - Dependency Graph'));
   console.log(chalk.dim('─'.repeat(45)));
 
   if (!fs.existsSync(absPath)) {
@@ -208,7 +208,7 @@ function writeSvgGraph(
   );
   const canvasHeight = (maxDepth + 1) * V_GAP + PADDING * 3 + 30;
 
-  // Assign positions — center each depth level
+  // Assign positions - center each depth level
   const positions = new Map<string, { x: number; y: number; w: number }>();
   for (const [depth, depthNodes] of byDepth.entries()) {
     const rowWidth = depthNodes.length * NODE_W + (depthNodes.length - 1) * H_GAP;
@@ -270,7 +270,7 @@ function writeSvgGraph(
     </marker>
   </defs>
   <text x="${PADDING}" y="22" font-size="12" fill="#6B7280">
-    ∆ Delta — ${path.relative(projectRoot, rootFile)}
+    ∆ Delta - ${path.relative(projectRoot, rootFile)}
   </text>
   ${svgEdges}
   ${svgNodes}

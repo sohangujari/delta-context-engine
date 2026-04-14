@@ -54,7 +54,7 @@ function matchesPattern(filePath: string, pattern: string): boolean {
   const normalizedPath = filePath.replace(/\\/g, '/');
   const normalizedPattern = pattern.replace(/\\/g, '/');
 
-  // Handle **/prefix — matches anywhere in the path
+  // Handle **/prefix - matches anywhere in the path
   if (normalizedPattern.startsWith('**/')) {
     const suffix = normalizedPattern.slice(3);
     const suffixRegex = globToRegex(suffix);
@@ -69,7 +69,7 @@ function matchesPattern(filePath: string, pattern: string): boolean {
     return false;
   }
 
-  // Handle pattern without leading **/ — also try matching as suffix
+  // Handle pattern without leading **/ - also try matching as suffix
   const regex = globToRegex(normalizedPattern);
   if (regex.test(normalizedPath)) return true;
 

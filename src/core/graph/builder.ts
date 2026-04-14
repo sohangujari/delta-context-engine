@@ -38,7 +38,7 @@ export async function buildFullGraph(
   let edgesCreated = 0;
   const errors: string[] = [];
 
-  // Pass 1: Index all files — AST + state + symbol maps
+  // Pass 1: Index all files - AST + state + symbol maps
   for (const filePath of allFiles) {
     try {
       const symbolMap = await extractSymbols(filePath);

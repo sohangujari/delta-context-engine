@@ -36,11 +36,11 @@ export async function classifyFiles(
   let strategy: 'git' | 'hash' | 'hybrid';
 
   if (gitResult.isGitRepo && gitResult.changedFiles.length > 0) {
-    // Pure git strategy — fast and accurate
+    // Pure git strategy - fast and accurate
     changedPaths = gitResult.changedFiles.filter((f) => fs.existsSync(f));
     strategy = 'git';
   } else if (gitResult.isGitRepo && gitResult.changedFiles.length === 0) {
-    // Git says nothing changed — cross-check with hashes
+    // Git says nothing changed - cross-check with hashes
     // (handles cases where git cache is stale)
     const allFiles =
       allIndexedFiles ??
@@ -54,7 +54,7 @@ export async function classifyFiles(
     changedPaths = hashChanged;
     strategy = hashChanged.length > 0 ? 'hybrid' : 'git';
   } else {
-    // Not a git repo — fall back to hash comparison entirely
+    // Not a git repo - fall back to hash comparison entirely
     const allFiles =
       allIndexedFiles ??
       walkDirectory(projectRoot, projectRoot, ignorePatterns);

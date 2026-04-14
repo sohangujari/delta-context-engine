@@ -11,7 +11,7 @@ import type { WatchEvent } from '../../../core/indexer/file-watcher.js';
 export async function watchCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
 
-  console.log(chalk.bold('\n∆ Delta — Watch Mode'));
+  console.log(chalk.bold('\n∆ Delta - Watch Mode'));
   console.log(chalk.dim('─'.repeat(45)));
   console.log(chalk.dim(`Watching: ${root}`));
   console.log(chalk.dim('Press Ctrl+C to stop'));
@@ -57,7 +57,7 @@ export async function watchCommand(projectRoot: string): Promise<void> {
           break;
         case 'error':
           console.log(
-            `  ${chalk.dim(time)}  ${chalk.red('!')} ${event.relativePath} — ${event.error}`
+            `  ${chalk.dim(time)}  ${chalk.red('!')} ${event.relativePath} - ${event.error}`
           );
           break;
       }
@@ -78,6 +78,6 @@ export async function watchCommand(projectRoot: string): Promise<void> {
 
   // Keep process alive
   await new Promise<void>(() => {
-    // Intentionally never resolves — process stays alive until SIGINT
+    // Intentionally never resolves - process stays alive until SIGINT
   });
 }

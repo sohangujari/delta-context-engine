@@ -32,7 +32,7 @@ export async function getGitChangedFiles(
   function filterFile(filePath: string): boolean {
     if (!isSupportedFile(filePath)) return false;
 
-    // Hard exclude — check relative path prefix directly
+    // Hard exclude - check relative path prefix directly
     const relative = path.relative(projectRoot, filePath);
     const normalized = relative.replace(/\\/g, '/');
 

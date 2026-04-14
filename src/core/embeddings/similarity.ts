@@ -50,7 +50,7 @@ export function rankBySimilarity(
       const score = cosineSimilarity(queryVector, candidate.vector);
       scored.push({ filePath: candidate.filePath, score });
     } catch {
-      // Dimension mismatch — skip this file
+      // Dimension mismatch - skip this file
     }
   }
 

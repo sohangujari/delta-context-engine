@@ -1,4 +1,4 @@
-// Core data types — used by every layer of the pipeline
+// Core data types - used by every layer of the pipeline
 
 export interface FunctionSymbol {
   name: string;

@@ -10,7 +10,7 @@ export async function reportCommand(
 ): Promise<void> {
   const root = path.resolve(projectRoot);
 
-  console.log(chalk.bold('\n∆ Delta — Session Report'));
+  console.log(chalk.bold('\n∆ Delta - Session Report'));
   console.log(chalk.dim('─'.repeat(45)));
 
   const db = new DeltaDb(root);
@@ -116,7 +116,7 @@ function generateMarkdownReport(
   });
 
   const lines = [
-    '# ∆ Delta Context Engine — Report',
+    '# ∆ Delta Context Engine - Report',
     '',
     `**Generated:** ${date}`,
     '',
