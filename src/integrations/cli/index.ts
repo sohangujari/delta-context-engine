@@ -9,6 +9,7 @@ import { cursorInitCommand } from './commands/cursor-init.js';
 import { reportCommand } from './commands/report.js';
 import { includeCommand } from './commands/include.js';
 import { excludeCommand } from './commands/exclude.js';
+import { repairCommand } from './commands/repair.js';
 
 const program = new Command();
 
@@ -104,6 +105,14 @@ program
   .option('--root <path>', 'Project root directory', process.cwd())
   .action(async (file: string, options: { root: string }) => {
     await excludeCommand(file, options.root);
+  });
+
+program
+  .command('repair')
+  .description('Repair corrupt or stale index entries')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .action(async (options: { root: string }) => {
+    await repairCommand(options.root);
   });
 
 // Must be last — parses argv and dispatches to registered commands
