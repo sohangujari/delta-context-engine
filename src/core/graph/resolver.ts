@@ -1,45 +1,63 @@
 import path from 'path';
 import fs from 'fs';
+import {
+  detectMonorepo,
+  buildPackageMap,
+  resolveMonorepoImport,
+  type MonorepoConfig,
+} from './monorepo.js';
 
 const SUPPORTED_EXTENSIONS = [
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py',
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rs', '.java',
 ];
 
-// Extensions to try when resolving bare imports (no extension)
 const RESOLUTION_ORDER = [
   '.ts', '.tsx', '.js', '.jsx', '.mjs',
   '/index.ts', '/index.tsx', '/index.js',
 ];
 
-/**
- * Resolve an import source string to an absolute file path.
- * Returns null if the import is external (node_modules) or unresolvable.
- *
- * Examples:
- *   '../utils/auth'     → '/project/src/utils/auth.ts'
- *   './symbol-map.js'   → '/project/src/core/ast/symbol-map.ts'
- *   'chalk'             → null  (external)
- *   'node:path'         → null  (node built-in)
- */
+// Cache monorepo config per project root
+const monorepoCache = new Map<string, MonorepoConfig>();
+
+function getMonorepoConfig(projectRoot: string): MonorepoConfig {
+  if (monorepoCache.has(projectRoot)) {
+    return monorepoCache.get(projectRoot)!;
+  }
+  const config = detectMonorepo(projectRoot);
+  monorepoCache.set(projectRoot, config);
+  return config;
+}
+
 export function resolveImport(
   importSource: string,
   fromFile: string,
   projectRoot: string
 ): string | null {
-  // Skip external packages and node built-ins
-  if (isExternal(importSource)) {
-    return null;
+  // Node built-ins
+  if (importSource.startsWith('node:')) return null;
+
+  // Relative imports — resolve normally
+  if (importSource.startsWith('.')) {
+    return resolveRelative(importSource, fromFile);
   }
 
-  // Must be a relative import at this point
-  if (!importSource.startsWith('.')) {
-    return null;
+  // Check monorepo package map for cross-package imports
+  const monorepo = getMonorepoConfig(projectRoot);
+  if (monorepo.type !== 'none' && monorepo.packages.length > 0) {
+    const packageMap = buildPackageMap(monorepo);
+    const resolved = resolveMonorepoImport(importSource, packageMap);
+    if (resolved) return resolved;
   }
 
+  // External package — skip
+  return null;
+}
+
+function resolveRelative(importSource: string, fromFile: string): string | null {
   const fromDir = path.dirname(fromFile);
   const rawResolved = path.resolve(fromDir, importSource);
 
-  // Try exact path first (import already has extension)
+  // Exact path with supported extension
   if (
     SUPPORTED_EXTENSIONS.includes(path.extname(rawResolved)) &&
     fs.existsSync(rawResolved)
@@ -47,23 +65,17 @@ export function resolveImport(
     return rawResolved;
   }
 
-  // Strip .js extension — TypeScript uses .js in imports but files are .ts
+  // Strip .js — TypeScript uses .js in imports but files are .ts
   const withoutJs = rawResolved.replace(/\.js$/, '');
 
-  // Try each extension in resolution order
   for (const ext of RESOLUTION_ORDER) {
     const candidate = withoutJs + ext;
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
+    if (fs.existsSync(candidate)) return candidate;
   }
 
-  // Try the raw path with each extension (no .js stripping)
   for (const ext of RESOLUTION_ORDER) {
     const candidate = rawResolved + ext;
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
+    if (fs.existsSync(candidate)) return candidate;
   }
 
   return null;
@@ -75,7 +87,6 @@ export function isExternal(importSource: string): boolean {
     !importSource.startsWith('/') &&
     !importSource.startsWith('node:') === false ||
     importSource.startsWith('node:') ||
-    // Scoped packages: @anthropic-ai/sdk
     (importSource.startsWith('@') && !importSource.startsWith('@/'))
   );
 }
@@ -86,13 +97,9 @@ export function resolveImports(
   projectRoot: string
 ): string[] {
   const resolved: string[] = [];
-
   for (const imp of imports) {
     const absPath = resolveImport(imp.source, fromFile, projectRoot);
-    if (absPath) {
-      resolved.push(absPath);
-    }
+    if (absPath) resolved.push(absPath);
   }
-
   return [...new Set(resolved)];
 }
