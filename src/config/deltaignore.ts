@@ -95,4 +95,4 @@ function globToRegex(pattern: string): RegExp {
     .replace(/{{DOUBLE_STAR}}/g, '.*');
 
   return new RegExp(`^${escaped}$`);
-}
+}// touch

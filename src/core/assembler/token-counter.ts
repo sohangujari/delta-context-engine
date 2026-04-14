@@ -32,4 +32,4 @@ export function countTokensForFiles(
 export function estimateTokens(text: string): number {
   // Fast approximation without encoding — use for non-critical estimates
   return Math.ceil(text.length / 4);
-}
+}// touch

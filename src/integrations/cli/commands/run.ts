@@ -18,6 +18,7 @@ import { VectorStore } from '../../../core/embeddings/vector-store.js';
 import { isCursorProject, updateCursorContext } from '../../../integrations/cursor/context-writer.js';
 import { SessionManager } from '../../../core/session/session-manager.js';
 import { loadOverrides, clearOverrides } from './include.js';
+import { autoEscalateBudget, formatEscalationNotice } from '../../../core/assembler/budget-manager.js';
 
 export interface RunOptions {
   root: string;
@@ -70,6 +71,7 @@ export async function runCommand(
       console.log(`  ${chalk.yellow('●')} ${f.relativePath}`);
     }
     console.log('');
+    
 
     // Load overrides for this run
     const overrides = loadOverrides(root);
@@ -84,6 +86,20 @@ export async function runCommand(
       }
       console.log('');
     }
+
+    // ── Budget auto-escalation ────────────────────────────────
+    const escalation = autoEscalateBudget(
+      classification.changedCount,
+      tokenBudget,
+      config
+    );
+
+    if (escalation.escalated) {
+      console.log(chalk.yellow(formatEscalationNotice(escalation)));
+      console.log('');
+    }
+
+    const effectiveBudget = escalation.finalBudget;
 
     // ── Step 2: Graph traversal ───────────────────────────────────
     const graphSpinner = ora('Tracing dependency graph...').start();
@@ -185,7 +201,7 @@ export async function runCommand(
       task,
       traversal: rankedTraversal,
       projectRoot: root,
-      tokenBudget,
+      tokenBudget: effectiveBudget,
       allProjectFiles: allFiles,
       overrides,
     });
@@ -273,9 +289,8 @@ export async function runCommand(
     console.log(chalk.dim('─'.repeat(50)));
 
     const budgetUsed = payload.totalTokens;
-    const budgetPct  = Math.round((budgetUsed / tokenBudget) * 100);
 
-    if (budgetUsed > tokenBudget) {
+    if (budgetUsed > effectiveBudget) {
       console.log(
         chalk.bold(`Total: ${budgetUsed.toLocaleString()} tokens`) +
         chalk.dim(' (changed files exceed budget — increase with --budget)') +
@@ -283,8 +298,8 @@ export async function runCommand(
       );
     } else {
       console.log(
-        chalk.bold(`Total: ${budgetUsed.toLocaleString()} / ${tokenBudget} tokens`) +
-        chalk.dim(` (${budgetPct}% of budget used)`)
+        chalk.bold(`Total: ${budgetUsed.toLocaleString()} / ${effectiveBudget} tokens`) +
+        chalk.dim(` (${Math.round((budgetUsed / effectiveBudget) * 100)}% of budget used)`)
       );
     }
 
