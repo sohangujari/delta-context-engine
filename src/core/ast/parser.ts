@@ -1,22 +1,25 @@
 import Parser from 'tree-sitter';
 import TSLanguage from 'tree-sitter-typescript';
 import PYLanguage from 'tree-sitter-python';
+import GOLanguage from 'tree-sitter-go';
+import RSLanguage from 'tree-sitter-rust';
+import JALanguage from 'tree-sitter-java';
 import path from 'path';
 import fs from 'fs';
 import { getLanguageForExtension } from './languages/typescript.js';
 import type { SupportedLanguage } from './symbol-map.js';
 
-// Use the actual grammar objects directly — static imports resolve correctly
-// Dynamic await import() returns a different module shape at runtime
 type TreeSitterLanguage = object;
 
 const LANGUAGE_MAP: Partial<Record<SupportedLanguage, TreeSitterLanguage>> = {
   typescript: TSLanguage.typescript,
-  javascript: TSLanguage.typescript, // TS grammar handles JS too
-  python: PYLanguage as unknown as TreeSitterLanguage,
+  javascript: TSLanguage.typescript,
+  python:     PYLanguage as unknown as TreeSitterLanguage,
+  go:         GOLanguage as unknown as TreeSitterLanguage,
+  rust:       RSLanguage as unknown as TreeSitterLanguage,
+  java:       JALanguage as unknown as TreeSitterLanguage,
 };
 
-// Parser instance cache — one per language
 const parserCache = new Map<SupportedLanguage, Parser>();
 
 function getParser(language: SupportedLanguage): Parser | null {
@@ -25,9 +28,7 @@ function getParser(language: SupportedLanguage): Parser | null {
   }
 
   const grammar = LANGUAGE_MAP[language];
-  if (!grammar) {
-    return null;
-  }
+  if (!grammar) return null;
 
   try {
     const parser = new Parser();
@@ -50,14 +51,10 @@ export async function parseFile(filePath: string): Promise<ParseResult | null> {
   const ext = path.extname(filePath).toLowerCase();
   const language = getLanguageForExtension(ext);
 
-  if (language === 'unknown') {
-    return null;
-  }
+  if (language === 'unknown') return null;
 
   const parser = getParser(language);
-  if (!parser) {
-    return null;
-  }
+  if (!parser) return null;
 
   try {
     const source = fs.readFileSync(filePath, 'utf-8');

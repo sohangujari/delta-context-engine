@@ -7,15 +7,15 @@ export const TYPESCRIPT_EXTENSIONS = [
 
 export function getLanguageForExtension(ext: string): SupportedLanguage {
   const map: Record<string, SupportedLanguage> = {
-    '.ts': 'typescript',
-    '.tsx': 'typescript',
-    '.js': 'javascript',
-    '.jsx': 'javascript',
-    '.mjs': 'javascript',
-    '.cjs': 'javascript',
-    '.py': 'python',
-    '.go': 'go',
-    '.rs': 'rust',
+    '.ts':   'typescript',
+    '.tsx':  'typescript',
+    '.js':   'javascript',
+    '.jsx':  'javascript',
+    '.mjs':  'javascript',
+    '.cjs':  'javascript',
+    '.py':   'python',
+    '.go':   'go',
+    '.rs':   'rust',
     '.java': 'java',
   };
   return map[ext.toLowerCase()] ?? 'unknown';

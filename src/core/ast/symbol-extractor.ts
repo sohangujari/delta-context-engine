@@ -19,6 +19,9 @@ import type {
 import { countTokens } from '../assembler/token-counter.js';
 import { formatSymbolMap } from './symbol-map.js';
 import Parser from 'tree-sitter';
+import { extractGoSymbols } from './languages/go.js';
+import { extractRustSymbols } from './languages/rust.js';
+import { extractJavaSymbols } from './languages/java.js';
 
 export async function extractSymbols(filePath: string): Promise<SymbolMap | null> {
   const parseResult = await parseFile(filePath);
@@ -39,6 +42,15 @@ export async function extractSymbols(filePath: string): Promise<SymbolMap | null
       break;
     case 'python':
       symbolMap = extractPythonSymbols(filePath, root, source);
+      break;
+    case 'go':
+      symbolMap = extractGoSymbols(filePath, root, source);
+      break;
+    case 'rust':
+      symbolMap = extractRustSymbols(filePath, root, source);
+      break;
+    case 'java':
+      symbolMap = extractJavaSymbols(filePath, root, source);
       break;
     default:
       return null;
