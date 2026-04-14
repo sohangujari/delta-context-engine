@@ -10,6 +10,7 @@ import { reportCommand } from './commands/report.js';
 import { includeCommand } from './commands/include.js';
 import { excludeCommand } from './commands/exclude.js';
 import { repairCommand } from './commands/repair.js';
+import { graphCommand } from './commands/graph.js';
 
 const program = new Command();
 
@@ -114,6 +115,25 @@ program
   .action(async (options: { root: string }) => {
     await repairCommand(options.root);
   });
+
+program
+  .command('graph <file>')
+  .description('Show dependency graph for a file')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .option('--depth <n>', 'Max traversal depth', '2')
+  .option('--open', 'Open SVG graph in browser')
+  .action(
+    async (
+      file: string,
+      options: { root: string; depth: string; open: boolean }
+    ) => {
+      await graphCommand(file, {
+        root: options.root,
+        depth: parseInt(options.depth, 10),
+        open: options.open ?? false,
+      });
+    }
+  );
 
 // Must be last — parses argv and dispatches to registered commands
 program.parse();
