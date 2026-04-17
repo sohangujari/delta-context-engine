@@ -1,6 +1,6 @@
 {
   "name": "delta-ctx",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Delta Context Engine - Only send what changed.",
   "keywords": [
     "claude",
