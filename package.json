@@ -11,16 +11,16 @@
     "developer-tools",
     "claude-code"
   ],
-  "homepage": "https://github.com/yourusername/delta-context-engine",
+  "homepage": "https://github.com/sohangujari/delta-context-engine",
   "bugs": {
-    "url": "https://github.com/yourusername/delta-context-engine/issues"
+    "url": "https://github.com/sohangujari/delta-context-engine/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/delta-context-engine.git"
+    "url": "git+https://github.com/sohangujari/delta-context-engine.git"
   },
   "license": "MIT",
-  "author": "Your Name",
+  "author": "Sohan Gujari",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

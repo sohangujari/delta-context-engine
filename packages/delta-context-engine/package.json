@@ -2,7 +2,7 @@
   "name": "delta-context-engine",
   "displayName": "∆ Delta Context Engine",
   "description": "Reduce AI coding token usage by 85%. Only send what changed.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "delta-ctx",
   "engines": {
     "vscode": "^1.100.0"

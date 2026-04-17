@@ -1,0 +1,16 @@
+src/
+tests/
+packages/
+.delta/
+.claude/
+.cursor/
+*.test.ts
+*.spec.ts
+vitest.config.ts
+.nvmrc
+.eslintrc*
+tsconfig.json
+.git/
+.gitignore
+*.log
+*.tgz

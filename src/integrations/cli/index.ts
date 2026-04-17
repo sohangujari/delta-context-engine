@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('delta')
   .description('∆ Delta Context Engine - Only send what changed.')
-  .version('0.1.0');
+  .version('1.0.0');
 
 program
   .command('init')
