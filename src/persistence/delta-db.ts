@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { DELTA_DIR, DB_FILE } from '../config/defaults.js';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const SCHEMA = `
   -- Schema version tracking
@@ -77,6 +77,44 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_graph_edges_from ON graph_edges(from_path);
   CREATE INDEX IF NOT EXISTS idx_graph_edges_to   ON graph_edges(to_path);
   CREATE INDEX IF NOT EXISTS idx_files_state      ON indexed_files(state);
+
+  -- Memory items: structured knowledge captured from AI sessions
+  CREATE TABLE IF NOT EXISTS memory_items (
+    id              TEXT PRIMARY KEY,
+    topic           TEXT NOT NULL,
+    type            TEXT NOT NULL,
+    title           TEXT NOT NULL,
+    content         TEXT NOT NULL,
+    confidence      TEXT NOT NULL DEFAULT 'MEDIUM',
+    source          TEXT NOT NULL DEFAULT 'auto',
+    session_id      TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    last_accessed   TEXT NOT NULL
+  );
+
+  -- Links memory items to specific files they are about
+  CREATE TABLE IF NOT EXISTS memory_file_links (
+    memory_id   TEXT NOT NULL,
+    file_path   TEXT NOT NULL,
+    PRIMARY KEY (memory_id, file_path),
+    FOREIGN KEY (memory_id) REFERENCES memory_items(id) ON DELETE CASCADE
+  );
+
+  -- Tag system for searching and filtering memories
+  CREATE TABLE IF NOT EXISTS memory_tags (
+    memory_id  TEXT NOT NULL,
+    tag        TEXT NOT NULL,
+    PRIMARY KEY (memory_id, tag),
+    FOREIGN KEY (memory_id) REFERENCES memory_items(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_memory_topic      ON memory_items(topic);
+  CREATE INDEX IF NOT EXISTS idx_memory_type        ON memory_items(type);
+  CREATE INDEX IF NOT EXISTS idx_memory_confidence  ON memory_items(confidence);
+  CREATE INDEX IF NOT EXISTS idx_memory_updated     ON memory_items(updated_at);
+  CREATE INDEX IF NOT EXISTS idx_memory_links_file  ON memory_file_links(file_path);
+  CREATE INDEX IF NOT EXISTS idx_memory_tags_tag    ON memory_tags(tag);
 `;
 
 export class DeltaDb {

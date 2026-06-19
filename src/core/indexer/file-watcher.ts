@@ -8,6 +8,8 @@ import type { GraphStore } from '../../persistence/graph-store.js';
 import type { StateStore } from '../../persistence/state-store.js';
 import type { SymbolStore } from '../../persistence/symbol-store.js';
 import type { VectorStore } from '../embeddings/vector-store.js';
+import type { MemoryStore } from '../../persistence/memory-store.js';
+import { markRelatedMemoriesStale } from '../memory/staleness.js';
 
 export interface WatcherOptions {
   projectRoot: string;
@@ -15,6 +17,7 @@ export interface WatcherOptions {
   stateStore: StateStore;
   symbolStore: SymbolStore;
   vectorStore: VectorStore;
+  memoryStore?: MemoryStore;
   debounceMs?: number;
   onUpdate?: (event: WatchEvent) => void;
 }
@@ -142,6 +145,12 @@ export function startWatcher(options: WatcherOptions): () => Promise<void> {
       }
 
       const durationMs = Date.now() - start;
+
+      // Mark related memories as stale when files are updated
+      if (options.memoryStore) {
+        const relPath = path.relative(projectRoot, filePath);
+        markRelatedMemoriesStale([relPath], options.memoryStore);
+      }
 
       onUpdate?.({
         type,

@@ -19,6 +19,13 @@ import { isCursorProject, updateCursorContext } from '../../../integrations/curs
 import { SessionManager } from '../../../core/session/session-manager.js';
 import { loadOverrides, clearOverrides } from './include.js';
 import { autoEscalateBudget, formatEscalationNotice } from '../../../core/assembler/budget-manager.js';
+import { MemoryStore } from '../../../persistence/memory-store.js';
+import { injectMemories } from '../../../core/memory/injector.js';
+import { captureMemory } from '../../../core/memory/capture.js';
+import {
+  markRelatedMemoriesStale,
+  formatStalenessWarning,
+} from '../../../core/memory/staleness.js';
 
 export interface RunOptions {
   root: string;
@@ -45,6 +52,7 @@ export async function runCommand(
   const graphStore = new GraphStore(db.getDb());
   const symbolStore = new SymbolStore(db.getDb());
   const vectorStore = new VectorStore(db.getDb());
+  const memoryStore = new MemoryStore(db.getDb());
   const ignorePatterns = loadIgnorePatterns(root);
 
   try {
@@ -72,6 +80,15 @@ export async function runCommand(
     }
     console.log('');
     
+
+    // ── Step 1.5: Staleness detection ─────────────────────────────
+    const changedRelPaths = classification.changed.map((f) => f.relativePath);
+    const stalenessReport = markRelatedMemoriesStale(changedRelPaths, memoryStore);
+
+    if (stalenessReport.stalledCount > 0) {
+      console.log(chalk.yellow(formatStalenessWarning(stalenessReport)));
+      console.log('');
+    }
 
     // Load overrides for this run
     const overrides = loadOverrides(root);
@@ -174,6 +191,25 @@ export async function runCommand(
       console.log('');
     }
 
+    // ── Step 4.5: Memory injection ────────────────────────────────
+    const injection = injectMemories(
+      task,
+      changedRelPaths,
+      memoryStore,
+      Math.floor(effectiveBudget * 0.2)  // allocate up to 20% of budget for memory
+    );
+
+    if (injection.memoriesUsed.length > 0) {
+      console.log(
+        chalk.magenta(`Memory: ${injection.memoriesUsed.length} memor${injection.memoriesUsed.length === 1 ? 'y' : 'ies'} injected`) +
+        chalk.dim(` (${injection.tokenCount} tokens)`)
+      );
+      for (const m of injection.memoriesUsed) {
+        console.log(`  ${chalk.magenta('●')} ${m.title.padEnd(38)} ${chalk.dim(`(${m.confidence})`)}`);
+      }
+      console.log('');
+    }
+
     // ── Step 5: Assemble context ──────────────────────────────────
     const assembleSpinner = ora(
       `Assembling context (budget: ${tokenBudget} tokens)...`
@@ -204,6 +240,8 @@ export async function runCommand(
       tokenBudget: effectiveBudget,
       allProjectFiles: allFiles,
       overrides,
+      ...(injection.memoryBlock ? { memoryBlock: injection.memoryBlock } : {}),
+      ...(injection.tokenCount > 0 ? { memoryTokens: injection.tokenCount } : {}),
     });
 
     const sessionManager = new SessionManager(db.getDb());
@@ -307,6 +345,22 @@ export async function runCommand(
       console.log('');
       console.log(chalk.dim('─── Payload Preview ───'));
       console.log(chalk.dim(payload.formatted.slice(0, 600) + '\n...'));
+    }
+
+    // ── Memory capture ────────────────────────────────────────────
+    const captureResult = captureMemory(
+      task,
+      changedPaths,
+      payload,
+      root,
+      memoryStore
+    );
+
+    if (captureResult) {
+      console.log('');
+      console.log(
+        chalk.dim(`Memory: 1 new memory captured → ${captureResult.topic}`)
+      );
     }
 
   } finally {

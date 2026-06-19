@@ -15,7 +15,7 @@ import type { ClassifiedFile } from '../change-detector/state-classifier.js';
 import type { TraversalResult } from '../graph/traverser.js';
 
 export interface ContextSlot {
-  priority: 1 | 2 | 3 | 4 | 5;
+  priority: 0 | 1 | 2 | 3 | 4 | 5;
   label: string;
   content: string;
   tokenCount: number;
@@ -64,17 +64,24 @@ export interface AssembleOptions {
     include: string[];
     exclude: string[];
   };
+  /** Pre-formatted memory block to inject as SLOT 0 (from injector.ts) */
+  memoryBlock?: string;
+  /** Token count of the memory block */
+  memoryTokens?: number;
 }
 
 /**
  * Core context assembly pipeline.
  *
  * Priority stack:
- *   SLOT 1 (priority=1): Task instruction        - always included
- *   SLOT 2 (priority=2): Changed files, full     - always included
- *   SLOT 3 (priority=3): Touched files, symbols  - include until budget
- *   SLOT 4 (priority=4): Ancestor files, summary - include until budget
- *   SLOT 5 (priority=5): Project skeleton        - include if budget allows
+ *   SLOT 0 (priority=0): Memory block             - injected memories (highest priority)
+ *   SLOT 1 (priority=1): Task instruction          - always included
+ *   SLOT 2 (priority=2): Changed files, full       - always included
+ *   SLOT 3 (priority=3): Touched files, symbols    - include until budget
+ *   SLOT 4 (priority=4): Ancestor files, summary   - include until budget
+ *   SLOT 5 (priority=5): Project skeleton          - include if budget allows
+ *
+ * Memory tokens are deducted from the budget before any other slot allocation.
  *
  * Compression cascade if budget exceeded:
  *   Step 1: Downgrade touched from symbols → summary
@@ -219,6 +226,8 @@ const excludeSet = new Set(
     touchedSymbolMaps,
     manifest,
     traversal,
+    ...(options.memoryBlock !== undefined ? { memoryBlock: options.memoryBlock } : {}),
+    ...(options.memoryTokens !== undefined ? { memoryTokens: options.memoryTokens } : {}),
   });
 
   const totalTokens = slots.reduce((sum, s) => sum + s.tokenCount, 0);
@@ -280,6 +289,8 @@ interface FitOptions {
   touchedSymbolMaps: Map<string, Awaited<ReturnType<typeof extractSymbols>>>;
   manifest: ContextManifest;
   traversal: TraversalResult;
+  memoryBlock?: string;
+  memoryTokens?: number;
 }
 
 async function fitToBudget(opts: FitOptions): Promise<ContextSlot[]> {
@@ -289,14 +300,16 @@ async function fitToBudget(opts: FitOptions): Promise<ContextSlot[]> {
     manifest, traversal,
   } = opts;
 
+  const memoryTokens = opts.memoryTokens ?? 0;
+
   let { touchedFiles, ancestorFiles } = opts;
 
-  // Calculate initial token usage
+  // Calculate initial token usage (memory tokens deducted first)
   const changedTokens = changedFiles.reduce((s, f) => s + f.tokenCount, 0);
   let touchedTokens = touchedFiles.reduce((s, f) => s + f.tokenCount, 0);
   let ancestorTokens = ancestorFiles.reduce((s, f) => s + f.tokenCount, 0);
 
-  let used = taskTokens + changedTokens + touchedTokens + ancestorTokens + skeletonTokens;
+  let used = memoryTokens + taskTokens + changedTokens + touchedTokens + ancestorTokens + skeletonTokens;
 
   // ── Cascade Step 1: Downgrade touched symbols → summaries ────────────────
   if (used > tokenBudget) {
@@ -371,6 +384,18 @@ async function fitToBudget(opts: FitOptions): Promise<ContextSlot[]> {
 
   // ── Assemble final slots ──────────────────────────────────────────────────
   const slots: ContextSlot[] = [];
+
+  // Slot 0: Memory (injected from memory store)
+  if (opts.memoryBlock && memoryTokens > 0) {
+    slots.push({
+      priority: 0,
+      label: 'Memory',
+      content: opts.memoryBlock,
+      tokenCount: memoryTokens,
+      compressionLevel: 'full',
+      files: [],
+    });
+  }
 
   // Slot 1: Task
   slots.push({

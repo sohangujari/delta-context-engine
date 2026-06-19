@@ -11,6 +11,7 @@ import { includeCommand } from './commands/include.js';
 import { excludeCommand } from './commands/exclude.js';
 import { repairCommand } from './commands/repair.js';
 import { graphCommand } from './commands/graph.js';
+import { memoryCommand } from './commands/memory.js';
 
 const program = new Command();
 
@@ -132,6 +133,31 @@ program
         depth: parseInt(options.depth, 10),
         open: options.open ?? false,
       });
+    }
+  );
+
+program
+  .command('memory <subcommand> [args...]')
+  .description('Manage persistent memory (list, show, add, forget, search, export, import, stats, confirm)')
+  .option('--root <path>', 'Project root directory', process.cwd())
+  .option('--type <type>', 'Filter by memory type')
+  .option('--confidence <level>', 'Filter by confidence level')
+  .allowUnknownOption(true)
+  .action(
+    async (
+      subcommand: string,
+      args: string[],
+      options: { root: string; type?: string; confidence?: string }
+    ) => {
+      // Merge --type and --confidence flags into args for the sub-command handler
+      const mergedArgs = [...args];
+      if (options.type) {
+        mergedArgs.push('--type', options.type);
+      }
+      if (options.confidence) {
+        mergedArgs.push('--confidence', options.confidence);
+      }
+      await memoryCommand(subcommand, mergedArgs, { root: options.root });
     }
   );
 
