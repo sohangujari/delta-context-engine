@@ -2,6 +2,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import path from 'path';
 import { shouldIgnore, loadIgnorePatterns } from '../../config/deltaignore.js';
+import { languageRegistry } from '../ast/language-registry.js';
 
 export interface FileHash {
   path: string;       // absolute path
@@ -34,7 +35,7 @@ export function walkDirectory(
   dir: string,
   projectRoot: string,
   ignorePatterns: string[],
-  extensions: string[] = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java']
+  extensions: string[] = languageRegistry.getSupportedExtensions()
 ): string[] {
   const results: string[] = [];
 

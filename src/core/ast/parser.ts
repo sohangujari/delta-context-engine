@@ -6,7 +6,7 @@ import RSLanguage from 'tree-sitter-rust';
 import JALanguage from 'tree-sitter-java';
 import path from 'path';
 import fs from 'fs';
-import { getLanguageForExtension } from './languages/typescript.js';
+import { languageRegistry } from './language-registry.js';
 import type { SupportedLanguage } from './symbol-map.js';
 
 type TreeSitterLanguage = object;
@@ -49,8 +49,9 @@ export interface ParseResult {
 
 export async function parseFile(filePath: string): Promise<ParseResult | null> {
   const ext = path.extname(filePath).toLowerCase();
-  const language = getLanguageForExtension(ext);
+  const language = languageRegistry.getLanguage(ext);
 
+  // Only attempt tree-sitter parsing for languages with grammars
   if (language === 'unknown') return null;
 
   const parser = getParser(language);

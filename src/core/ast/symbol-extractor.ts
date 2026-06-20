@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { parseFile, queryNode } from './parser.js';
 import {
   TS_FUNCTION_QUERY,
@@ -22,46 +23,103 @@ import Parser from 'tree-sitter';
 import { extractGoSymbols } from './languages/go.js';
 import { extractRustSymbols } from './languages/rust.js';
 import { extractJavaSymbols } from './languages/java.js';
+import { languageRegistry, type ExtractionTier } from './language-registry.js';
+import { extractWithPatterns } from './pattern-extractor.js';
+import { extractNotebookSymbols, extractDatabricksSymbols } from './notebook-extractor.js';
 
 export async function extractSymbols(filePath: string): Promise<SymbolMap | null> {
-  const parseResult = await parseFile(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const config = languageRegistry.detect(ext);
 
-  if (!parseResult) {
+  if (!config) {
     return null;
   }
 
-  const { tree, language, source } = parseResult;
-  const root = tree.rootNode;
+  const { language, tier } = config;
 
-  let symbolMap: SymbolMap;
+  // ── Tier 3: Notebooks (.ipynb, .dbc) ──────────────────────────────────────
+  if (tier === 'notebook') {
+    const symbolMap = ext === '.dbc'
+      ? extractDatabricksSymbols(filePath)
+      : extractNotebookSymbols(filePath);
 
-  switch (language) {
-    case 'typescript':
-    case 'javascript':
-      symbolMap = extractTypeScriptSymbols(filePath, root, source, language);
-      break;
-    case 'python':
-      symbolMap = extractPythonSymbols(filePath, root, source);
-      break;
-    case 'go':
-      symbolMap = extractGoSymbols(filePath, root, source);
-      break;
-    case 'rust':
-      symbolMap = extractRustSymbols(filePath, root, source);
-      break;
-    case 'java':
-      symbolMap = extractJavaSymbols(filePath, root, source);
-      break;
-    default:
-      return null;
+    if (symbolMap) {
+      const formattedSymbols = formatSymbolMap(symbolMap);
+      symbolMap.tokenCount = countTokens(formattedSymbols);
+      // For notebooks, read the raw file for raw token count
+      try {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        symbolMap.rawTokenCount = countTokens(raw);
+      } catch {
+        symbolMap.rawTokenCount = 0;
+      }
+    }
+    return symbolMap;
   }
 
-  // Calculate token costs
-  const formattedSymbols = formatSymbolMap(symbolMap);
-  symbolMap.tokenCount = countTokens(formattedSymbols);
-  symbolMap.rawTokenCount = countTokens(source);
+  // ── Tier 4: Minimal (no symbol extraction) ────────────────────────────────
+  if (tier === 'minimal') {
+    return null; // Indexed and embedded but no symbol extraction
+  }
 
-  return symbolMap;
+  // ── Tier 1: Full tree-sitter AST ──────────────────────────────────────────
+  const parseResult = await parseFile(filePath);
+
+  if (parseResult) {
+    const { tree, language: parsedLang, source } = parseResult;
+    const root = tree.rootNode;
+
+    let symbolMap: SymbolMap;
+
+    switch (parsedLang) {
+      case 'typescript':
+      case 'javascript':
+        symbolMap = extractTypeScriptSymbols(filePath, root, source, parsedLang);
+        break;
+      case 'python':
+        symbolMap = extractPythonSymbols(filePath, root, source);
+        break;
+      case 'go':
+        symbolMap = extractGoSymbols(filePath, root, source);
+        break;
+      case 'rust':
+        symbolMap = extractRustSymbols(filePath, root, source);
+        break;
+      case 'java':
+        symbolMap = extractJavaSymbols(filePath, root, source);
+        break;
+      default:
+        symbolMap = extractTypeScriptSymbols(filePath, root, source, parsedLang);
+        break;
+    }
+
+    // Calculate token costs
+    const formattedSymbols = formatSymbolMap(symbolMap);
+    symbolMap.tokenCount = countTokens(formattedSymbols);
+    symbolMap.rawTokenCount = countTokens(source);
+
+    return symbolMap;
+  }
+
+  // ── Tier 2: Pattern-based fallback ────────────────────────────────────────
+  // If tree-sitter parsing failed (no grammar) but we have a known language,
+  // fall back to regex-based extraction
+  if (tier === 'full' || tier === 'pattern') {
+    try {
+      const source = fs.readFileSync(filePath, 'utf-8');
+      const symbolMap = extractWithPatterns(filePath, source, language);
+
+      const formattedSymbols = formatSymbolMap(symbolMap);
+      symbolMap.tokenCount = countTokens(formattedSymbols);
+      symbolMap.rawTokenCount = countTokens(source);
+
+      return symbolMap;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 // ─── TypeScript / JavaScript ──────────────────────────────────────────────────

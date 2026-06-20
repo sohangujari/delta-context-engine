@@ -52,12 +52,45 @@ export interface SymbolMap {
 }
 
 export type SupportedLanguage =
+  // Tier 1: Full tree-sitter AST
   | 'typescript'
   | 'javascript'
   | 'python'
   | 'go'
   | 'rust'
   | 'java'
+  | 'csharp'
+  | 'cpp'
+  | 'ruby'
+  | 'php'
+  // Tier 2: Pattern-based extraction
+  | 'kotlin'
+  | 'swift'
+  | 'scala'
+  | 'dart'
+  | 'r'
+  | 'lua'
+  | 'solidity'
+  | 'elixir'
+  | 'erlang'
+  | 'haskell'
+  | 'clojure'
+  | 'perl'
+  | 'groovy'
+  | 'objc'
+  | 'julia'
+  | 'vlang'
+  | 'zig'
+  | 'nim'
+  | 'crystal'
+  | 'fsharp'
+  | 'ocaml'
+  // Tier 3: Notebooks
+  | 'notebook'
+  // Tier 4: Minimal (indexed, no symbols)
+  | 'markdown'
+  | 'config'
+  // Catch-all
   | 'unknown';
 
 export function formatSymbolMap(symbolMap: SymbolMap): string {
