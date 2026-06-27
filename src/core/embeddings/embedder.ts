@@ -1,5 +1,13 @@
-// Calls Ollama REST API to generate embeddings locally.
-// Zero API cost, works offline, runs on Apple Silicon.
+// Embedding module — delegates to the configured EmbeddingProvider.
+// Default: Ollama (local, zero cost, offline).
+// Supports: OpenAI, Azure OpenAI via provider adapter.
+
+import {
+  resolveProvider,
+  type EmbeddingProvider,
+  type EmbeddingProviderConfig,
+  DEFAULT_PROVIDER_CONFIGS,
+} from './provider.js';
 
 const OLLAMA_BASE_URL = 'http://localhost:11434';
 const DEFAULT_MODEL = 'nomic-embed-text';
@@ -11,9 +19,45 @@ export interface EmbeddingResult {
   dimensions: number;
 }
 
+// ── Provider instance (lazy-initialized) ──────────────────────────────────────
+
+let activeProvider: EmbeddingProvider | null = null;
+
 /**
- * Embed a single text string using the local Ollama model.
- * Returns null if Ollama is not running or the model is not available.
+ * Get or create the active embedding provider.
+ * On first call, resolves from config. Subsequent calls return cached instance.
+ */
+export function getActiveProvider(
+  config?: { embeddings?: Partial<EmbeddingProviderConfig> }
+): EmbeddingProvider {
+  if (!activeProvider) {
+    activeProvider = resolveProvider(config);
+  }
+  return activeProvider;
+}
+
+/**
+ * Set a specific provider (useful for testing or explicit config).
+ */
+export function setActiveProvider(provider: EmbeddingProvider): void {
+  activeProvider = provider;
+}
+
+/**
+ * Reset the active provider (forces re-resolution on next call).
+ */
+export function resetProvider(): void {
+  activeProvider = null;
+}
+
+// ── Public API (backward-compatible) ──────────────────────────────────────────
+
+/**
+ * Embed a single text string using the active provider.
+ * Returns null if the provider is not available.
+ *
+ * The `model` parameter is kept for backward compatibility but is ignored
+ * when a non-Ollama provider is active (it uses its own configured model).
  */
 export async function embed(
   text: string,
@@ -23,33 +67,18 @@ export async function embed(
     return null;
   }
 
+  const provider = getActiveProvider();
+
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: text }),
-      signal: AbortSignal.timeout(30_000), // 30s timeout
-    });
-
-    if (!response.ok) {
-      console.warn(`⚠ Ollama embedding failed: ${response.status} ${response.statusText}`);
-      return null;
-    }
-
-    const data = await response.json() as { embedding: number[] };
-
-    if (!data.embedding || !Array.isArray(data.embedding)) {
-      console.warn('⚠ Ollama returned invalid embedding format');
-      return null;
-    }
+    const vector = await provider.embed(text);
+    if (!vector) return null;
 
     return {
-      vector: new Float32Array(data.embedding),
-      model,
-      dimensions: data.embedding.length,
+      vector,
+      model: provider.model,
+      dimensions: vector.length,
     };
   } catch (err) {
-    // Ollama not running - fail silently, pipeline continues without embeddings
     if (isConnectionError(err)) {
       return null;
     }
@@ -60,7 +89,7 @@ export async function embed(
 
 /**
  * Embed multiple texts in sequence.
- * Returns a map of text → vector for successful embeddings.
+ * Returns a map of id → vector for successful embeddings.
  */
 export async function embedBatch(
   texts: Array<{ id: string; text: string }>,
@@ -86,10 +115,12 @@ export async function embedBatch(
 
 /**
  * Check if Ollama is running and the model is available.
+ * Kept for backward compatibility — delegates to the Ollama provider check.
  */
 export async function checkOllamaAvailable(
   model = DEFAULT_MODEL
 ): Promise<{ available: boolean; reason?: string }> {
+  // Always check Ollama specifically, regardless of active provider
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
       signal: AbortSignal.timeout(3_000),
@@ -124,6 +155,21 @@ export async function checkOllamaAvailable(
 }
 
 /**
+ * Check if the active provider is available.
+ * Uses the adapter's checkAvailability() method.
+ */
+export async function checkProviderAvailable(
+  config?: { embeddings?: Partial<EmbeddingProviderConfig> }
+): Promise<{ available: boolean; reason?: string; providerName: string }> {
+  const provider = getActiveProvider(config);
+  const check = await provider.checkAvailability();
+  return {
+    ...check,
+    providerName: provider.name,
+  };
+}
+
+/**
  * Build the text to embed for a file.
  * Combines file path + symbol map for richer semantic signal.
  */
@@ -135,10 +181,6 @@ export function buildEmbeddingText(
 ): string {
   const relativePath = filePath.replace(projectRoot + '/', '');
 
-  // Combine path context + symbols + summary
-  // Path gives structural signal (e.g. "auth/login" vs "payments/stripe")
-  // Symbols give semantic signal (function names, types)
-  // Summary gives natural language signal
   const parts = [
     `file: ${relativePath}`,
     summary ? `description: ${summary}` : '',

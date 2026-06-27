@@ -12,6 +12,7 @@ import { excludeCommand } from './commands/exclude.js';
 import { repairCommand } from './commands/repair.js';
 import { graphCommand } from './commands/graph.js';
 import { memoryCommand } from './commands/memory.js';
+import { providersCommand } from './commands/providers.js';
 
 const program = new Command();
 
@@ -160,6 +161,13 @@ program
       await memoryCommand(subcommand, mergedArgs, { root: options.root });
     }
   );
+
+program
+  .command('providers')
+  .description('Show embedding provider status (ollama, openai, azure)')
+  .action(async () => {
+    await providersCommand();
+  });
 
 // Must be last - parses argv and dispatches to registered commands
 program.parse();

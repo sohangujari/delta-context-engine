@@ -27,6 +27,13 @@ export const DEFAULT_CONFIG = {
     embeddingModel: 'nomic-embed-text',
     combineWithGraph: true,
   },
+  embeddings: {
+    provider: 'ollama' as const,
+    model: 'nomic-embed-text',
+    baseUrl: 'http://localhost:11434',
+    timeoutMs: 30_000,
+    dimensions: 768,
+  },
   indexing: {
     languages: ['typescript', 'javascript', 'python'],
     watchMode: false,

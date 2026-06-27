@@ -7,7 +7,6 @@ import { DEFAULT_CONFIG } from '../../../config/defaults.js';
 import { loadIgnorePatterns } from '../../../config/deltaignore.js';
 import { walkDirectory } from '../../../core/change-detector/hash-tracker.js';
 import { buildFullGraph } from '../../../core/graph/builder.js';
-import { checkOllamaAvailable } from '../../../core/embeddings/embedder.js';
 import { embedFile } from '../../../core/embeddings/query.js';
 import { DeltaDb } from '../../../persistence/delta-db.js';
 import { GraphStore } from '../../../persistence/graph-store.js';
@@ -83,23 +82,30 @@ export async function initCommand(projectRoot: string): Promise<void> {
     );
   }
 
-  // Step 6: Generate embeddings (if Ollama is available)
+  // Step 6: Generate embeddings (if embedding provider is available)
   console.log('');
-  const ollamaCheck = await checkOllamaAvailable();
+  const { checkProviderAvailable } = await import('../../../core/embeddings/embedder.js');
+  const providerCheck = await checkProviderAvailable();
 
-  if (!ollamaCheck.available) {
+  if (!providerCheck.available) {
     console.log(
-      chalk.yellow(`⚠ Skipping embeddings: ${ollamaCheck.reason}`)
+      chalk.yellow(`⚠ Skipping embeddings (${providerCheck.providerName}): ${providerCheck.reason}`)
     );
     console.log(
       chalk.dim('  Semantic scoring disabled. Graph + AST scoring still active.')
     );
-    console.log(
-      chalk.dim('  To enable: ollama serve && ollama pull nomic-embed-text')
-    );
+    if (providerCheck.providerName === 'ollama') {
+      console.log(
+        chalk.dim('  To enable: ollama serve && ollama pull nomic-embed-text')
+      );
+    } else {
+      console.log(
+        chalk.dim('  Configure provider in .delta/config.json → embeddings block')
+      );
+    }
   } else {
     const embedSpinner = ora(
-      `Generating embeddings for ${allFiles.length} files...`
+      `Generating embeddings (${providerCheck.providerName}) for ${allFiles.length} files...`
     ).start();
 
     let embedded = 0;
