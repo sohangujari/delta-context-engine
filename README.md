@@ -3,12 +3,15 @@
 [![npm version](https://img.shields.io/npm/v/delta-ctx.svg)](https://www.npmjs.com/package/delta-ctx)
 [![npm downloads](https://img.shields.io/npm/dm/delta-ctx.svg)](https://www.npmjs.com/package/delta-ctx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sohangujari.github.io/delta-context-engine)
 
 > **Only send what changed.**
 
 Delta is an open-source context intelligence engine that sits between your editor and Claude. Instead of re-reading your entire codebase on every task, Delta indexes it once, watches for changes, and surgically assembles the minimum possible context payload.
 
 **85% fewer tokens. 6× more tasks on the same weekly budget.**
+
+📖 **[Read the full documentation →](https://sohangujari.github.io/delta-context-engine)**
 
 ---
 
