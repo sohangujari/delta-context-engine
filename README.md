@@ -1,5 +1,9 @@
 # ∆ Delta Context Engine
 
+[![npm version](https://img.shields.io/npm/v/delta-ctx.svg)](https://www.npmjs.com/package/delta-ctx)
+[![npm downloads](https://img.shields.io/npm/dm/delta-ctx.svg)](https://www.npmjs.com/package/delta-ctx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > **Only send what changed.**
 
 Delta is an open-source context intelligence engine that sits between your editor and Claude. Instead of re-reading your entire codebase on every task, Delta indexes it once, watches for changes, and surgically assembles the minimum possible context payload.
@@ -113,6 +117,7 @@ depth=3+ payments/...       → excluded entirely
 Packs everything into a hard token budget using a priority stack. Never exceeds the budget - compresses further before breaking the limit.
 
 ```
+SLOT 0  Memory context      200 tokens  relevant memories injected
 SLOT 1  Task instruction     200 tokens  always included
 SLOT 2  Changed files        800 tokens  always included
 SLOT 3  Depth-1 symbols      400 tokens  until budget
@@ -170,19 +175,75 @@ Delta automatically detects Ollama and enables semantic scoring. Falls back to g
 
 ## Commands
 
+### Core Commands
+
 | Command | Description |
 |---|---|
-| `delta init` | Index codebase, build dependency graph, generate embeddings |
+| `delta init` | Index codebase, build graph, detect communities, trace flows, calculate risk |
 | `delta run "task"` | Assemble optimized context for a task |
 | `delta stats` | Show index statistics and compression rates |
 | `delta watch` | Watch for file changes and update index automatically |
 | `delta report` | Show session history and tokens saved |
 | `delta report --markdown` | Export report as Markdown |
+
+### Graph Intelligence (V2)
+
+| Command | Description |
+|---|---|
+| `delta communities` | List detected architectural communities |
+| `delta communities --show <name>` | Show files in a community with centrality scores |
+| `delta communities --verbose` | Show cohesion and coupling scores |
+| `delta flows` | List detected execution flows |
+| `delta flows --show <id>` | Show full call chain for a flow |
+| `delta flows --type HTTP_ROUTE` | Filter flows by entry type |
+| `delta flows --file <path>` | Show flows touching a specific file |
+| `delta blast <file>` | Calculate blast radius for a file |
+| `delta blast <file> --symbol <name>` | Scope blast analysis to one function |
+| `delta risk` | Show HIGH risk files with 5-dimension scores |
+| `delta risk --file <path>` | Show per-dimension breakdown |
+| `delta risk --all` | Show all files including LOW risk |
+| `delta hubs` | Show architectural hubs by betweenness centrality |
+| `delta hubs --bridges` | Show bridge files (architectural chokepoints) |
+| `delta hubs --surprise` | Show unexpected cross-community connections |
+| `delta snapshot save <label>` | Save current graph state |
+| `delta snapshot list` | List all saved snapshots |
+| `delta snapshot diff <label>` | Diff current state vs a snapshot |
+| `delta snapshot delete <label>` | Remove a snapshot |
+
+### Memory System (V2)
+
+| Command | Description |
+|---|---|
+| `delta memory list` | List all memories |
+| `delta memory show <id>` | Show memory details |
+| `delta memory add` | Add a manual memory |
+| `delta memory forget <id>` | Delete a memory |
+| `delta memory search <query>` | Search memories by text |
+| `delta memory export` | Export memories to JSON |
+| `delta memory import <file>` | Import memories from JSON |
+| `delta memory stats` | Memory statistics |
+| `delta memory confirm <id>` | Re-validate a stale memory |
+
+### Embedding Providers
+
+| Command | Description |
+|---|---|
+| `delta providers` | Show embedding provider status (Ollama, OpenAI, Azure) |
+
+### File Management
+
+| Command | Description |
+|---|---|
 | `delta include <file>` | Force-add a file to the next context payload |
 | `delta exclude <file>` | Force-remove a file from the next context payload |
 | `delta repair` | Fix corrupt or stale index entries |
 | `delta graph <file>` | Show dependency graph for a file |
 | `delta graph <file> --open` | Open SVG graph in browser |
+
+### Editor Integrations
+
+| Command | Description |
+|---|---|
 | `delta cursor-init` | Set up Cursor editor integration |
 | `delta mcp` | Start MCP server for Claude Code |
 
@@ -192,6 +253,71 @@ Delta automatically detects Ollama and enables semantic scoring. Falls back to g
 delta run "task" --budget 4000     # override token budget
 delta run "task" --verbose         # show relevance scores
 delta run "task" --budget 8000     # thorough mode
+```
+
+---
+
+## Graph Intelligence
+
+Delta V2 understands your codebase architecture, not just individual files.
+
+### Community Detection
+
+Delta uses the Leiden algorithm to automatically cluster your codebase into architectural communities:
+
+```
+✔ 6 communities detected · modularity: 0.71
+  auth (8 files)  payments (6 files)  data (12 files)
+  api (9 files)   utils (11 files)    config (8 files)
+```
+
+### Execution Flow Tracing
+
+Detects entry points (HTTP routes, CLI commands, event handlers) and traces call chains:
+
+```
+POST /api/login           HTTP_ROUTE    depth=6   files=8   crit=0.84
+POST /api/register        HTTP_ROUTE    depth=5   files=7   crit=0.76
+delta init                CLI_CMD       depth=9   files=14  crit=0.95
+```
+
+### Blast Radius
+
+Calculate the full impact of changing any file:
+
+```
+∆ Blast Radius: src/utils/jwt.ts
+Risk: HIGH (0.84)
+  ├─ Dependent files: 23   (direct: 6, transitive: 17)
+  ├─ Communities:      3   (auth, api, payments)
+  ├─ Flows affected:   4   (avg criticality: 0.81)
+  └─ Test gaps:        4   (17% of affected files)
+```
+
+### Risk Scoring
+
+Every file scored across 5 dimensions: security sensitivity, test coverage, cross-community callers, flow participation, and surprise coupling.
+
+### Hub & Bridge Detection
+
+Find architectural bottlenecks using betweenness centrality and Tarjan's bridge-finding algorithm.
+
+### Graph Snapshots
+
+Save and diff architectural state across time: "What changed architecturally this sprint?"
+
+---
+
+## Memory System
+
+Delta remembers context across sessions. Architectural decisions, bug fixes, edge cases, and community knowledge are automatically captured and injected as SLOT 0 in context assembly.
+
+```bash
+# Memories are auto-captured from delta run sessions
+# Manually add important context:
+delta memory add
+
+# Stale memories are auto-detected when related files change
 ```
 
 ---
@@ -266,9 +392,15 @@ Delta works with zero config. To customize, edit `.delta/config.json`:
     "combineWithGraph": true
   },
   "indexing": {
-    "languages": ["typescript", "javascript", "python", "go", "rust", "java"],
     "watchMode": false,
     "incrementalDelay": 500
+  },
+  "embeddings": {
+    "provider": "ollama",
+    "model": "nomic-embed-text",
+    "baseUrl": "http://localhost:11434",
+    "dimensions": 768,
+    "timeout": 30000
   }
 }
 ```
@@ -293,6 +425,14 @@ Delta automatically expands the budget for large changes:
 
 Disable with `"autoEscalate": false` in config.
 
+### Embedding Providers
+
+| Provider | Setup | Use Case |
+|---|---|---|
+| Ollama (default) | `ollama serve && ollama pull nomic-embed-text` | Local, private, free |
+| OpenAI | Set `OPENAI_API_KEY` env var | Cloud, high quality |
+| Azure OpenAI | Set `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` | Enterprise |
+
 ### .deltaignore
 
 Works like `.gitignore`. Delta also inherits your `.gitignore` automatically.
@@ -309,14 +449,33 @@ coverage/**
 
 ## Language Support
 
-| Language | Extensions | AST Parsing | Symbol Extraction |
-|---|---|---|---|
-| TypeScript | `.ts`, `.tsx` | ✅ | ✅ |
-| JavaScript | `.js`, `.jsx`, `.mjs` | ✅ | ✅ |
-| Python | `.py` | ✅ | ✅ |
-| Go | `.go` | ✅ | ✅ |
-| Rust | `.rs` | ✅ | ✅ |
-| Java | `.java` | ✅ | ✅ |
+### Tier 1 — Full AST Parsing (tree-sitter)
+
+| Language | Extensions |
+|---|---|
+| TypeScript | `.ts`, `.tsx` |
+| JavaScript | `.js`, `.jsx`, `.mjs` |
+| Python | `.py` |
+| Go | `.go` |
+| Rust | `.rs` |
+| Java | `.java` |
+
+### Tier 2 — Pattern Extraction (regex)
+
+C, C++, C#, Ruby, PHP, Swift, Kotlin, Scala, Dart, R, Lua, Perl, Haskell, Elixir, Clojure, and more (15+ languages).
+
+### Tier 3 — Notebook Support
+
+| Format | Extensions |
+|---|---|
+| Jupyter Notebook | `.ipynb` |
+| Databricks | `.dbc` |
+
+### Tier 4 — Minimal Indexing
+
+Shell scripts, config files, markup, styles, and 20+ additional formats are indexed for change detection and dependency tracking.
+
+**56+ file extensions supported across all tiers.**
 
 ---
 
@@ -334,6 +493,23 @@ Cross-package imports are resolved automatically:
 ```typescript
 import { Button } from '@myapp/ui'
 // → resolves to packages/ui/src/index.ts
+```
+
+---
+
+## `delta init` Pipeline
+
+```
+Step 1:   Save config
+Step 2:   Scan files (56+ extensions)
+Step 3:   Index files (SHA-256 hashing)
+Step 4:   Parse + extract symbols (multi-tier)
+Step 5:   Build dependency graph
+Step 6:   Detect communities (Leiden algorithm)
+Step 7:   Trace execution flows
+Step 8:   Calculate risk scores (5 dimensions)
+Step 9:   Detect hubs and bridges (Brandes + Tarjan)
+Step 10:  Generate embeddings (multi-provider)
 ```
 
 ---
@@ -390,13 +566,16 @@ echo ".delta/" >> .gitignore
 | Context assembly | < 200ms | ~80ms |
 | Embedding query | < 50ms | ~12ms |
 | Graph traversal (depth=2) | < 30ms | ~8ms |
+| Community detection | < 5s | ~1.2s |
+| Flow tracing | < 3s | ~800ms |
+| Risk scoring | < 2s | ~400ms |
 
 ---
 
 ## Development
 
 ```bash
-git clone https://github.com/yourusername/delta-context-engine
+git clone https://github.com/sohangujari/delta-context-engine
 cd delta-context-engine
 npm install
 npx tsc
@@ -412,14 +591,15 @@ node dist/integrations/cli/index.js run "fix the login bug"
 src/
 ├── core/
 │   ├── change-detector/    # git diff + hash tracking
-│   ├── ast/                # tree-sitter symbol extraction
-│   ├── graph/              # dependency graph + traversal
-│   ├── embeddings/         # nomic-embed-text via Ollama
+│   ├── ast/                # tree-sitter + pattern + notebook extraction
+│   ├── graph/              # dependency graph, communities, flows, risk, hubs, blast radius, diff
+│   ├── embeddings/         # multi-provider embeddings (Ollama, OpenAI, Azure)
+│   ├── memory/             # persistent memory capture, injection, staleness
 │   ├── relevance/          # hybrid scoring (semantic + graph)
 │   ├── assembler/          # context assembly + token budget
 │   ├── session/            # session tracking + reporting
 │   └── indexer/            # file watcher + incremental updates
-├── persistence/            # SQLite stores (symbols, graph, vectors)
+├── persistence/            # SQLite stores (symbols, graph, vectors, memories, communities, flows, risk, hubs, snapshots)
 ├── integrations/
 │   ├── cli/                # all CLI commands
 │   ├── claude-code/        # MCP server
@@ -432,13 +612,13 @@ src/
 
 ## Why Delta?
 
-| Tool | Token Reduction | Change-Aware | AST Symbols | Dep Graph | Automatic |
-|---|---|---|---|---|---|
-| Raw Claude Code | 0% | ❌ | ❌ | ❌ | ❌ |
-| `/compact` | ~30% | ❌ | ❌ | ❌ | ✅ |
-| Cursor RAG | ~40% | ❌ | ❌ | ❌ | ✅ |
-| Manual CLAUDE.md | ~10% | ❌ | ❌ | ❌ | ❌ |
-| **∆ Delta** | **85%** | ✅ | ✅ | ✅ | ✅ |
+| Tool | Token Reduction | Change-Aware | AST Symbols | Dep Graph | Graph Intelligence | Memory |
+|---|---|---|---|---|---|---|
+| Raw Claude Code | 0% | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `/compact` | ~30% | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Cursor RAG | ~40% | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Manual CLAUDE.md | ~10% | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **∆ Delta** | **85%** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
