@@ -13,6 +13,12 @@ import { repairCommand } from './commands/repair.js';
 import { graphCommand } from './commands/graph.js';
 import { memoryCommand } from './commands/memory.js';
 import { providersCommand } from './commands/providers.js';
+import { communitiesCommand } from './commands/communities.js';
+import { flowsCommand } from './commands/flows.js';
+import { blastCommand } from './commands/blast.js';
+import { riskCommand } from './commands/risk.js';
+import { hubsCommand } from './commands/hubs.js';
+import { snapshotCommand } from './commands/snapshot.js';
 
 const program = new Command();
 
@@ -167,6 +173,67 @@ program
   .description('Show embedding provider status (ollama, openai, azure)')
   .action(async () => {
     await providersCommand();
+  });
+
+program
+  .command('communities')
+  .description('List detected architectural communities')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-s, --show <name>', 'Show files in a specific community')
+  .option('-v, --verbose', 'Show cohesion and coupling scores')
+  .action(async (options: { root?: string; show?: string; verbose?: boolean }) => {
+    await communitiesCommand(options);
+  });
+
+program
+  .command('flows')
+  .description('List detected execution flows')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-t, --type <type>', 'Filter by entry type (HTTP_ROUTE, CLI_CMD, EVENT, EXPORT, TEST)')
+  .option('-s, --show <id>', 'Show full call chain for a flow')
+  .option('-f, --file <path>', 'Show flows touching a specific file')
+  .action(async (options: { root?: string; type?: string; show?: string; file?: string }) => {
+    await flowsCommand(options);
+  });
+
+program
+  .command('blast <file>')
+  .description('Calculate blast radius for a file')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-s, --symbol <name>', 'Scope to a specific function')
+  .option('-d, --depth <n>', 'Max traversal depth', '5')
+  .action(async (file: string, options: { root?: string; symbol?: string; depth?: string }) => {
+    await blastCommand(file, options);
+  });
+
+program
+  .command('risk')
+  .description('Show file risk scores (5 dimensions)')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-a, --all', 'Show all files including LOW risk')
+  .option('-f, --file <path>', 'Show dimension breakdown for one file')
+  .action(async (options: { root?: string; all?: boolean; file?: string }) => {
+    await riskCommand(options);
+  });
+
+program
+  .command('hubs')
+  .description('Show architectural hubs, bridges, and surprise connections')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-b, --bridges', 'Show bridge files (architectural chokepoints)')
+  .option('-s, --surprise', 'Show high surprise-coupling files')
+  .option('-a, --all', 'Show all metrics')
+  .action(async (options: { root?: string; bridges?: boolean; surprise?: boolean; all?: boolean }) => {
+    await hubsCommand(options);
+  });
+
+program
+  .command('snapshot <subcommand> [args...]')
+  .description('Manage graph snapshots (save, list, diff, delete)')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-n, --notes <text>', 'Notes for the snapshot')
+  .action(async (subcommand: string, args: string[], options: { root?: string; notes?: string }) => {
+    await snapshotCommand(subcommand, args, options);
   });
 
 // Must be last - parses argv and dispatches to registered commands

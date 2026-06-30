@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { DELTA_DIR, DB_FILE } from '../config/defaults.js';
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const SCHEMA = `
   -- Schema version tracking
@@ -115,6 +115,136 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_memory_updated     ON memory_items(updated_at);
   CREATE INDEX IF NOT EXISTS idx_memory_links_file  ON memory_file_links(file_path);
   CREATE INDEX IF NOT EXISTS idx_memory_tags_tag    ON memory_tags(tag);
+
+  -- ═══ Phase 2: Graph Intelligence ═══════════════════════════════════════════
+
+  -- Communities: clusters of related files (Leiden algorithm)
+  CREATE TABLE IF NOT EXISTS communities (
+    id               TEXT PRIMARY KEY,
+    name             TEXT NOT NULL,
+    description      TEXT NOT NULL DEFAULT '',
+    file_count       INTEGER NOT NULL DEFAULT 0,
+    cohesion_score   REAL NOT NULL DEFAULT 0.0,
+    coupling_score   REAL NOT NULL DEFAULT 0.0,
+    risk_level       TEXT NOT NULL DEFAULT 'LOW',
+    detected_at      TEXT NOT NULL,
+    algorithm        TEXT NOT NULL DEFAULT 'leiden',
+    resolution       REAL NOT NULL DEFAULT 1.0
+  );
+
+  CREATE TABLE IF NOT EXISTS community_members (
+    community_id  TEXT NOT NULL,
+    file_path     TEXT NOT NULL,
+    centrality    REAL NOT NULL DEFAULT 0.0,
+    PRIMARY KEY (community_id, file_path),
+    FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS community_edges (
+    from_community  TEXT NOT NULL,
+    to_community    TEXT NOT NULL,
+    edge_count      INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (from_community, to_community)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_community_members_file ON community_members(file_path);
+  CREATE INDEX IF NOT EXISTS idx_community_edges_from   ON community_edges(from_community);
+
+  -- Execution flows: entry point → call chain paths
+  CREATE TABLE IF NOT EXISTS execution_flows (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    entry_file    TEXT NOT NULL,
+    entry_symbol  TEXT NOT NULL,
+    entry_type    TEXT NOT NULL,
+    depth         INTEGER NOT NULL DEFAULT 0,
+    file_count    INTEGER NOT NULL DEFAULT 0,
+    criticality   REAL NOT NULL DEFAULT 0.0,
+    detected_at   TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS flow_steps (
+    id          TEXT PRIMARY KEY,
+    flow_id     TEXT NOT NULL,
+    file_path   TEXT NOT NULL,
+    symbol      TEXT NOT NULL,
+    step_order  INTEGER NOT NULL,
+    depth       INTEGER NOT NULL,
+    criticality REAL NOT NULL DEFAULT 0.0,
+    FOREIGN KEY (flow_id) REFERENCES execution_flows(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_flow_steps_flow  ON flow_steps(flow_id);
+  CREATE INDEX IF NOT EXISTS idx_flow_steps_file  ON flow_steps(file_path);
+  CREATE INDEX IF NOT EXISTS idx_flow_entry_file  ON execution_flows(entry_file);
+
+  -- Risk scores per file (5 dimensions)
+  CREATE TABLE IF NOT EXISTS risk_scores (
+    file_path             TEXT PRIMARY KEY,
+    security_score        REAL NOT NULL DEFAULT 0.0,
+    test_coverage_score   REAL NOT NULL DEFAULT 0.0,
+    cross_community_score REAL NOT NULL DEFAULT 0.0,
+    flow_participation    REAL NOT NULL DEFAULT 0.0,
+    surprise_coupling     REAL NOT NULL DEFAULT 0.0,
+    overall_score         REAL NOT NULL DEFAULT 0.0,
+    risk_level            TEXT NOT NULL DEFAULT 'LOW',
+    calculated_at         TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_risk_overall ON risk_scores(overall_score DESC);
+  CREATE INDEX IF NOT EXISTS idx_risk_level   ON risk_scores(risk_level);
+
+  -- Hub metrics per file (betweenness centrality, bridges)
+  CREATE TABLE IF NOT EXISTS hub_metrics (
+    file_path           TEXT PRIMARY KEY,
+    betweenness         REAL NOT NULL DEFAULT 0.0,
+    degree_in           INTEGER NOT NULL DEFAULT 0,
+    degree_out          INTEGER NOT NULL DEFAULT 0,
+    is_hub              INTEGER NOT NULL DEFAULT 0,
+    is_bridge           INTEGER NOT NULL DEFAULT 0,
+    bridge_communities  TEXT,
+    surprise_score      REAL NOT NULL DEFAULT 0.0,
+    calculated_at       TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_hub_betweenness ON hub_metrics(betweenness DESC);
+  CREATE INDEX IF NOT EXISTS idx_hub_is_hub      ON hub_metrics(is_hub);
+  CREATE INDEX IF NOT EXISTS idx_hub_is_bridge   ON hub_metrics(is_bridge);
+
+  -- Graph snapshots for architectural diff
+  CREATE TABLE IF NOT EXISTS graph_snapshots (
+    id              TEXT PRIMARY KEY,
+    label           TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    file_count      INTEGER NOT NULL DEFAULT 0,
+    edge_count      INTEGER NOT NULL DEFAULT 0,
+    community_count INTEGER NOT NULL DEFAULT 0,
+    notes           TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS snapshot_files (
+    snapshot_id   TEXT NOT NULL,
+    file_path     TEXT NOT NULL,
+    hash          TEXT NOT NULL,
+    community_id  TEXT,
+    risk_score    REAL,
+    betweenness   REAL,
+    is_hub        INTEGER DEFAULT 0,
+    is_bridge     INTEGER DEFAULT 0,
+    PRIMARY KEY (snapshot_id, file_path),
+    FOREIGN KEY (snapshot_id) REFERENCES graph_snapshots(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS snapshot_edges (
+    snapshot_id  TEXT NOT NULL,
+    from_path    TEXT NOT NULL,
+    to_path      TEXT NOT NULL,
+    PRIMARY KEY (snapshot_id, from_path, to_path),
+    FOREIGN KEY (snapshot_id) REFERENCES graph_snapshots(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_snapshot_files_snap ON snapshot_files(snapshot_id);
+  CREATE INDEX IF NOT EXISTS idx_snapshot_edges_snap ON snapshot_edges(snapshot_id);
 `;
 
 export class DeltaDb {
