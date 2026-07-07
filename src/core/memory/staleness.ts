@@ -1,5 +1,5 @@
 import path from 'path';
-import type { Database } from 'better-sqlite3';
+import type { Database } from '../../persistence/database.js';
 import { MemoryStore, type MemoryItem } from '../../persistence/memory-store.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

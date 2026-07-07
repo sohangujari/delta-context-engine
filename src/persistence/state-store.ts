@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Database } from './database.js';
 
 export type FileState = 'CHANGED' | 'TOUCHED' | 'ANCESTOR' | 'UNRELATED';
 

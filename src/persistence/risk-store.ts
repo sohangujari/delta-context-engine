@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Database } from './database.js';
 import type { FileRiskScore } from '../core/graph/risk-scorer.js';
 
 // ── Store ─────────────────────────────────────────────────────────────────────

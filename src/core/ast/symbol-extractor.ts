@@ -19,7 +19,8 @@ import type {
 } from './symbol-map.js';
 import { countTokens } from '../assembler/token-counter.js';
 import { formatSymbolMap } from './symbol-map.js';
-import Parser from 'tree-sitter';
+// tree-sitter types - using 'any' since tree-sitter is now optional
+type SyntaxNode = any;
 import { extractGoSymbols } from './languages/go.js';
 import { extractRustSymbols } from './languages/rust.js';
 import { extractJavaSymbols } from './languages/java.js';
@@ -126,7 +127,7 @@ export async function extractSymbols(filePath: string): Promise<SymbolMap | null
 
 function extractTypeScriptSymbols(
   filePath: string,
-  root: Parser.SyntaxNode,
+  root: SyntaxNode,
   source: string,
   language: SupportedLanguage
 ): SymbolMap {
@@ -150,13 +151,13 @@ function extractTypeScriptSymbols(
 }
 
 function extractTsImports(
-  root: Parser.SyntaxNode,
+  root: SyntaxNode,
   _source: string
 ): ImportSymbol[] {
   const imports: ImportSymbol[] = [];
 
   // Walk the AST looking for import_statement nodes
-  function walk(node: Parser.SyntaxNode): void {
+  function walk(node: SyntaxNode): void {
     if (node.type === 'import_statement') {
       const sourceNode = node.childForFieldName('source');
       if (!sourceNode) return;
@@ -180,7 +181,7 @@ function extractTsImports(
           if (match?.[1]) {
             names = match[1]
               .split(',')
-              .map((n) => n.trim().split(' as ')[0]?.trim() ?? '')
+              .map((n: string) => n.trim().split(' as ')[0]?.trim() ?? '')
               .filter(Boolean);
           }
         } else {
@@ -209,13 +210,13 @@ function extractTsImports(
 }
 
 function extractTsFunctions(
-  root: Parser.SyntaxNode,
+  root: SyntaxNode,
   source: string
 ): FunctionSymbol[] {
   const functions: FunctionSymbol[] = [];
   const seen = new Set<string>();
 
-  function walk(node: Parser.SyntaxNode, insideExport = false): void {
+  function walk(node: SyntaxNode, insideExport = false): void {
     const type = node.type;
 
     if (
@@ -282,12 +283,12 @@ function extractTsFunctions(
 }
 
 function extractTsClasses(
-  root: Parser.SyntaxNode,
+  root: SyntaxNode,
   _source: string
 ): ClassSymbol[] {
   const classes: ClassSymbol[] = [];
 
-  function walk(node: Parser.SyntaxNode): void {
+  function walk(node: SyntaxNode): void {
     if (node.type === 'class_declaration') {
       const nameNode = node.childForFieldName('name');
       if (!nameNode) return;
@@ -346,13 +347,13 @@ function extractTsClasses(
 }
 
 function extractTsTypes(
-  root: Parser.SyntaxNode,
+  root: SyntaxNode,
   _source: string
 ): TypeSymbol[] {
   const types: TypeSymbol[] = [];
   const seen = new Set<string>();
 
-  function walk(node: Parser.SyntaxNode): void {
+  function walk(node: SyntaxNode): void {
     if (
       node.type === 'interface_declaration' ||
       node.type === 'type_alias_declaration' ||
@@ -391,7 +392,7 @@ function buildExports(
   functions: FunctionSymbol[],
   classes: ClassSymbol[],
   types: TypeSymbol[],
-  root: Parser.SyntaxNode,
+  root: SyntaxNode,
   _source: string
 ): ExportSymbol[] {
   const exports: ExportSymbol[] = [];
@@ -399,7 +400,7 @@ function buildExports(
   // Collect exported names by walking export_statement nodes
   const exportedNames = new Set<string>();
 
-  function walk(node: Parser.SyntaxNode): void {
+  function walk(node: SyntaxNode): void {
     if (node.type === 'export_statement') {
       // export { foo, bar }
       const exportClause = findChildOfType(node, 'export_clause');
@@ -478,14 +479,14 @@ function buildExports(
 
 function extractPythonSymbols(
   filePath: string,
-  root: Parser.SyntaxNode,
+  root: SyntaxNode,
   _source: string
 ): SymbolMap {
   const functions: FunctionSymbol[] = [];
   const classes: ClassSymbol[] = [];
   const imports: ImportSymbol[] = [];
 
-  function walk(node: Parser.SyntaxNode): void {
+  function walk(node: SyntaxNode): void {
     if (node.type === 'function_definition') {
       const nameNode = node.childForFieldName('name');
       const paramsNode = node.childForFieldName('parameters');
@@ -563,7 +564,7 @@ function cleanText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-function nodeHasChild(node: Parser.SyntaxNode, type: string): boolean {
+function nodeHasChild(node: SyntaxNode, type: string): boolean {
   for (let i = 0; i < node.childCount; i++) {
     if (node.child(i)?.type === type) return true;
   }
@@ -571,9 +572,9 @@ function nodeHasChild(node: Parser.SyntaxNode, type: string): boolean {
 }
 
 function findChildOfType(
-  node: Parser.SyntaxNode,
+  node: SyntaxNode,
   type: string
-): Parser.SyntaxNode | null {
+): SyntaxNode | null {
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
     if (child?.type === type) return child;
@@ -582,7 +583,7 @@ function findChildOfType(
 }
 
 function getMethodVisibility(
-  node: Parser.SyntaxNode
+  node: SyntaxNode
 ): 'public' | 'private' | 'protected' {
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);

@@ -1,6 +1,6 @@
 {
   "name": "delta-ctx",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Delta Context Engine - Only send what changed.",
   "keywords": [
     "claude",
@@ -45,13 +45,15 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "better-sqlite3": "^9.4.3",
     "chalk": "^5.3.0",
     "chokidar": "^3.6.0",
     "commander": "^12.0.0",
     "js-tiktoken": "^1.0.12",
     "ora": "^8.0.1",
     "simple-git": "^3.22.0",
+    "sql.js": "^1.14.1"
+  },
+  "optionalDependencies": {
     "tree-sitter": "^0.21.1",
     "tree-sitter-go": "^0.21.2",
     "tree-sitter-java": "^0.21.0",
@@ -61,7 +63,6 @@
     "tree-sitter-typescript": "^0.21.2"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^7.0.1",
     "@typescript-eslint/parser": "^7.0.1",

@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import path from 'path';
+import { initializeDatabase } from '../../persistence/database.js';
 import { loadConfig } from '../../config/delta.config.js';
 import { loadIgnorePatterns } from '../../config/deltaignore.js';
 import { classifyFiles } from '../../core/change-detector/state-classifier.js';
@@ -299,7 +300,10 @@ async function handleGetDeltaStats(
 }
 
 // Entry point
-runMcpServer().catch((err) => {
+(async () => {
+  await initializeDatabase();
+  await runMcpServer();
+})().catch((err) => {
   process.stderr.write(`Delta MCP Server error: ${err}\n`);
   process.exit(1);
 });

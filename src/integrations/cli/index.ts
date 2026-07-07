@@ -19,6 +19,7 @@ import { blastCommand } from './commands/blast.js';
 import { riskCommand } from './commands/risk.js';
 import { hubsCommand } from './commands/hubs.js';
 import { snapshotCommand } from './commands/snapshot.js';
+import { initializeDatabase } from '../../persistence/database.js';
 
 const program = new Command();
 
@@ -236,5 +237,8 @@ program
     await snapshotCommand(subcommand, args, options);
   });
 
-// Must be last - parses argv and dispatches to registered commands
-program.parse();
+// Initialize sql.js WASM engine, then parse CLI commands
+(async () => {
+  await initializeDatabase();
+  program.parse();
+})();

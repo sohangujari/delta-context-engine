@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Database } from '../../persistence/database.js';
 
 export interface StoredVector {
   filePath: string;

@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Database } from './database.js';
 import type { SymbolMap } from '../core/ast/symbol-map.js';
 
 export class SymbolStore {

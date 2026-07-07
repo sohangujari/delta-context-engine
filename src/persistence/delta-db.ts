@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { Database } from './database.js';
 import fs from 'fs';
 import path from 'path';
 import { DELTA_DIR, DB_FILE } from '../config/defaults.js';
@@ -248,7 +248,7 @@ const SCHEMA = `
 `;
 
 export class DeltaDb {
-  private db: Database.Database;
+  private db: Database;
 
   constructor(projectRoot: string) {
     const dbPath = path.join(projectRoot, DB_FILE);
@@ -276,7 +276,7 @@ export class DeltaDb {
     }
   }
 
-  getDb(): Database.Database {
+  getDb(): Database {
     return this.db;
   }
 

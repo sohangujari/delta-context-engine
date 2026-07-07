@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Database } from './database.js';
 import type { SnapshotData } from '../core/graph/graph-diff.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
