@@ -19,6 +19,9 @@ import { blastCommand } from './commands/blast.js';
 import { riskCommand } from './commands/risk.js';
 import { hubsCommand } from './commands/hubs.js';
 import { snapshotCommand } from './commands/snapshot.js';
+import { searchCommand } from './commands/search.js';
+import { serveCommand } from './commands/serve.js';
+import { proxyCommand } from './commands/proxy.js';
 import { initializeDatabase } from '../../persistence/database.js';
 
 const program = new Command();
@@ -26,7 +29,7 @@ const program = new Command();
 program
   .name('delta')
   .description('∆ Delta Context Engine - Only send what changed.')
-  .version('1.0.0');
+  .version('2.0.0');
 
 program
   .command('init')
@@ -235,6 +238,40 @@ program
   .option('-n, --notes <text>', 'Notes for the snapshot')
   .action(async (subcommand: string, args: string[], options: { root?: string; notes?: string }) => {
     await snapshotCommand(subcommand, args, options);
+  });
+
+program
+  .command('search <query>')
+  .description('Search across symbols, files, memory, flows, and communities')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-s, --scope <scope>', 'Search scope: all, symbols, files, memory, flows, communities', 'all')
+  .option('-l, --limit <n>', 'Max results', '20')
+  .option('-j, --json', 'Output as JSON')
+  .option('-v, --verbose', 'Show detailed scores')
+  .action(async (query: string, options: { root: string; scope?: string; limit?: string; json?: boolean; verbose?: boolean }) => {
+    await searchCommand(query, options);
+  });
+
+program
+  .command('serve')
+  .description('Start HTTP MCP server for universal tool access')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-p, --port <port>', 'Server port', '7734')
+  .option('-h, --host <host>', 'Server host', '127.0.0.1')
+  .action(async (options: { root: string; port?: string; host?: string }) => {
+    await serveCommand(options);
+  });
+
+program
+  .command('proxy')
+  .description('Start OpenAI-compatible proxy with auto Delta context injection')
+  .option('-r, --root <path>', 'Project root directory', '.')
+  .option('-p, --port <port>', 'Proxy port', '7735')
+  .option('--provider <name>', 'Provider: openai, anthropic, gemini, local', 'openai')
+  .option('--model <model>', 'Model name override')
+  .option('--api-key <key>', 'API key (or use env vars)')
+  .action(async (options: { root: string; port?: string; provider?: string; model?: string; apiKey?: string }) => {
+    await proxyCommand(options);
   });
 
 // Initialize sql.js WASM engine, then parse CLI commands

@@ -21,6 +21,8 @@ import { scoreAllFiles } from '../../../core/graph/risk-scorer.js';
 import { RiskStore } from '../../../persistence/risk-store.js';
 import { detectHubsAndBridges } from '../../../core/graph/hub-detector.js';
 import { HubStore } from '../../../persistence/hub-store.js';
+import { SearchIndexer } from '../../../persistence/search-indexer.js';
+import { MemoryStore } from '../../../persistence/memory-store.js';
 
 export async function initCommand(projectRoot: string): Promise<void> {
   const root = path.resolve(projectRoot);
@@ -240,6 +242,26 @@ export async function initCommand(projectRoot: string): Promise<void> {
         chalk.green(`Embedded ${embedded} / ${allFiles.length} files`)
       );
     }
+  }
+
+  // Step 11: Build FTS5 search index
+  console.log('');
+  const searchSpinner = ora('Building search index...').start();
+  try {
+    const searchIndexer = new SearchIndexer(db.getDb());
+    const memoryStore = new MemoryStore(db.getDb());
+    searchIndexer.indexSymbols(symbolStore);
+    searchIndexer.indexFiles(stateStore, communityStore, root);
+    searchIndexer.indexCommunities(communityStore);
+    searchIndexer.indexFlows(flowStore);
+    searchIndexer.indexMemory(memoryStore);
+    searchSpinner.succeed(
+      chalk.green('Search index built (FTS5)')
+    );
+  } catch (err) {
+    searchSpinner.warn(
+      chalk.yellow('Search index skipped: ' + (err instanceof Error ? err.message : String(err)))
+    );
   }
 
   db.close();

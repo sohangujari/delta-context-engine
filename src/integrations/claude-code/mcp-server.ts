@@ -1,309 +1,207 @@
+/**
+ * Delta MCP Server — Streamable HTTP (primary) + stdio (fallback).
+ *
+ * 14 tools + 5 prompts covering all Phase 1-3 intelligence.
+ *
+ * HTTP: delta serve (default port 7734)
+ * stdio: DELTA_MCP_TRANSPORT=stdio npx delta-ctx mcp
+ */
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import path from 'path';
 import { initializeDatabase } from '../../persistence/database.js';
-import { loadConfig } from '../../config/delta.config.js';
-import { loadIgnorePatterns } from '../../config/deltaignore.js';
-import { classifyFiles } from '../../core/change-detector/state-classifier.js';
-import { walkDirectory } from '../../core/change-detector/hash-tracker.js';
-import { traverseFromChanged } from '../../core/graph/traverser.js';
-import { queryByTask } from '../../core/embeddings/query.js';
-import { scoreAllFiles, buildSemanticScoreMap } from '../../core/relevance/scorer.js';
-import { rankForContext } from '../../core/relevance/ranker.js';
-import { assembleContext } from '../../core/assembler/context-builder.js';
+import { TOOL_DEFINITIONS } from './tool-definitions.js';
+import {
+  handleGetOptimizedContext,
+  handleGetCommunityMap,
+  handleGetExecutionFlows,
+  handleGetBlastRadius,
+  handleGetRiskScores,
+  handleGetMemory,
+  handleSaveMemory,
+  handleSearchCodebase,
+  handleGetGraphDiff,
+  handleGetHubFiles,
+  handleGetBridgeFiles,
+  handleGetSnapshot,
+  handleSaveSnapshot,
+  handleGetStats,
+} from './tool-handlers.js';
 import { DeltaDb } from '../../persistence/delta-db.js';
-import { GraphStore } from '../../persistence/graph-store.js';
-import { StateStore } from '../../persistence/state-store.js';
-import { SymbolStore } from '../../persistence/symbol-store.js';
-import { VectorStore } from '../../core/embeddings/vector-store.js';
+import { createAllStores } from './prompts/index.js';
+import { buildBlastRadiusPrompt } from './prompts/blast-radius-prompt.js';
+import { buildCodebaseCompassPrompt } from './prompts/codebase-compass-prompt.js';
+import { buildFaultTracerPrompt } from './prompts/fault-tracer-prompt.js';
+import { buildFirstDayPrompt } from './prompts/first-day-prompt.js';
+import { buildMergeGuardianPrompt } from './prompts/merge-guardian-prompt.js';
 
 const PROJECT_ROOT = process.cwd();
+const TRANSPORT = process.env['DELTA_MCP_TRANSPORT'] ?? 'stdio';
 
-/**
- * Delta MCP Server
- *
- * Exposes one tool: get_optimized_context
- * Claude Code calls this before every task.
- * Returns the optimized context payload as a string.
- *
- * Usage in .claude/settings.json:
- * {
- *   "mcpServers": {
- *     "delta": {
- *       "command": "npx",
- *       "args": ["delta-ctx", "mcp"]
- *     }
- *   }
- * }
- */
 async function runMcpServer(): Promise<void> {
+  await initializeDatabase();
+
   const server = new Server(
-    {
-      name: 'delta-context-engine',
-      version: '1.0.0',
-    },
-    {
-      capabilities: {
-        tools: {},
-      },
-    }
+    { name: 'delta-context-engine', version: '2.0.0' },
+    { capabilities: { tools: {}, prompts: {} } }
   );
 
-  // ── Tool: get_optimized_context ─────────────────────────────────
+  // ── 14 Tools ────────────────────────────────────────────────────────────────
+
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [
-      {
-        name: 'get_optimized_context',
-        description:
-          'Returns token-optimized context for the current task. ' +
-          'Detects changed files, traces dependencies, and assembles ' +
-          'a minimal context payload. Use this before every coding task ' +
-          'to reduce token usage by 75-90%.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            task: {
-              type: 'string',
-              description: 'The task instruction or question',
-            },
-            budget: {
-              type: 'number',
-              description: 'Token budget (default: 2000)',
-            },
-            projectRoot: {
-              type: 'string',
-              description: 'Project root path (default: current directory)',
-            },
-          },
-          required: ['task'],
-        },
-      },
-      {
-        name: 'get_delta_stats',
-        description: 'Returns Delta index statistics for the current project.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            projectRoot: {
-              type: 'string',
-              description: 'Project root path (default: current directory)',
-            },
-          },
-        },
-      },
-    ],
+    tools: TOOL_DEFINITIONS,
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-
-    // args can be undefined if no arguments passed - default to empty object
     const safeArgs: Record<string, unknown> = args ?? {};
 
-    if (name === 'get_optimized_context') {
-      return await handleGetOptimizedContext(safeArgs);
+    switch (name) {
+      case 'get_optimized_context': return await handleGetOptimizedContext(safeArgs, PROJECT_ROOT);
+      case 'get_community_map': return await handleGetCommunityMap(safeArgs, PROJECT_ROOT);
+      case 'get_execution_flows': return await handleGetExecutionFlows(safeArgs, PROJECT_ROOT);
+      case 'get_blast_radius': return await handleGetBlastRadius(safeArgs, PROJECT_ROOT);
+      case 'get_risk_scores': return await handleGetRiskScores(safeArgs, PROJECT_ROOT);
+      case 'get_memory': return await handleGetMemory(safeArgs, PROJECT_ROOT);
+      case 'save_memory': return await handleSaveMemory(safeArgs, PROJECT_ROOT);
+      case 'search_codebase': return await handleSearchCodebase(safeArgs, PROJECT_ROOT);
+      case 'get_graph_diff': return await handleGetGraphDiff(safeArgs, PROJECT_ROOT);
+      case 'get_hub_files': return await handleGetHubFiles(safeArgs, PROJECT_ROOT);
+      case 'get_bridge_files': return await handleGetBridgeFiles(safeArgs, PROJECT_ROOT);
+      case 'get_snapshot': return await handleGetSnapshot(safeArgs, PROJECT_ROOT);
+      case 'save_snapshot': return await handleSaveSnapshot(safeArgs, PROJECT_ROOT);
+      case 'get_stats': return await handleGetStats(safeArgs, PROJECT_ROOT);
+      default:
+        return {
+          content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }],
+          isError: true,
+        };
     }
-
-    if (name === 'get_delta_stats') {
-      return await handleGetDeltaStats(safeArgs);
-    }
-
-    return {
-      content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }],
-      isError: true,
-    };
   });
 
-  // ── Start server ─────────────────────────────────────────────────
+  // ── 5 Prompts ───────────────────────────────────────────────────────────────
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: [
+      {
+        name: 'blast_radius',
+        description: 'What does this change break? Impact analysis for changed files.',
+        arguments: [
+          { name: 'filePaths', description: 'Comma-separated file paths (uses git diff if omitted)', required: false },
+        ],
+      },
+      {
+        name: 'codebase_compass',
+        description: 'Show me how this codebase is structured. Architecture overview.',
+        arguments: [
+          { name: 'focusArea', description: 'Community name or area to focus on', required: false },
+        ],
+      },
+      {
+        name: 'fault_tracer',
+        description: 'Trace this error to its root cause. Debug assistance.',
+        arguments: [
+          { name: 'errorMessage', description: 'Error message or stack trace', required: true },
+          { name: 'symptom', description: 'What you observed going wrong', required: false },
+        ],
+      },
+      {
+        name: 'first_day',
+        description: 'Get a new developer productive in minutes. Onboarding guide.',
+        arguments: [
+          { name: 'focusArea', description: 'Area to focus on (e.g. "payments")', required: false },
+        ],
+      },
+      {
+        name: 'merge_guardian',
+        description: 'Is this PR safe to merge? Risk assessment and recommendation.',
+        arguments: [
+          { name: 'changedFiles', description: 'Comma-separated changed files (uses git diff if omitted)', required: false },
+          { name: 'branchName', description: 'Branch or PR name for labeling', required: false },
+        ],
+      },
+    ],
+  }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: promptArgs } = request.params;
+    const safeArgs = promptArgs ?? {};
+
+    const db = new DeltaDb(PROJECT_ROOT);
+    const stores = createAllStores(db.getDb(), PROJECT_ROOT);
+
+    try {
+      let text: string;
+
+      switch (name) {
+        case 'blast_radius':
+          text = await buildBlastRadiusPrompt({
+            filePaths: typeof safeArgs['filePaths'] === 'string'
+              ? safeArgs['filePaths'].split(',').map(f => f.trim()) : undefined,
+            projectRoot: PROJECT_ROOT,
+          }, stores);
+          break;
+
+        case 'codebase_compass':
+          text = await buildCodebaseCompassPrompt({
+            focusArea: typeof safeArgs['focusArea'] === 'string' ? safeArgs['focusArea'] : undefined,
+            projectRoot: PROJECT_ROOT,
+          }, stores);
+          break;
+
+        case 'fault_tracer':
+          text = await buildFaultTracerPrompt({
+            errorMessage: String(safeArgs['errorMessage'] ?? ''),
+            symptom: typeof safeArgs['symptom'] === 'string' ? safeArgs['symptom'] : undefined,
+            projectRoot: PROJECT_ROOT,
+          }, stores);
+          break;
+
+        case 'first_day':
+          text = await buildFirstDayPrompt({
+            focusArea: typeof safeArgs['focusArea'] === 'string' ? safeArgs['focusArea'] : undefined,
+            projectRoot: PROJECT_ROOT,
+          }, stores);
+          break;
+
+        case 'merge_guardian':
+          text = await buildMergeGuardianPrompt({
+            changedFiles: typeof safeArgs['changedFiles'] === 'string'
+              ? safeArgs['changedFiles'].split(',').map(f => f.trim()) : undefined,
+            branchName: typeof safeArgs['branchName'] === 'string' ? safeArgs['branchName'] : undefined,
+            projectRoot: PROJECT_ROOT,
+          }, stores);
+          break;
+
+        default:
+          throw new Error(`Unknown prompt: ${name}`);
+      }
+
+      db.close();
+      return {
+        messages: [{ role: 'user' as const, content: { type: 'text' as const, text } }],
+      };
+    } catch (err) {
+      db.close();
+      throw err;
+    }
+  });
+
+  // ── Start server ────────────────────────────────────────────────────────────
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
-
-  // Server runs until process exits
 }
 
-// ── Tool handlers ─────────────────────────────────────────────────────────────
+// Export for use by `delta serve` and `delta mcp`
+export { runMcpServer };
 
-async function handleGetOptimizedContext(
-  args: Record<string, unknown>
-): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
-  const task = String(args['task'] ?? '');
-  const budget = typeof args['budget'] === 'number' ? args['budget'] : 2000;
-  const projectRoot = typeof args['projectRoot'] === 'string'
-    ? args['projectRoot']
-    : PROJECT_ROOT;
-
-  const root = path.resolve(projectRoot);
-
-  let db: DeltaDb | null = null;
-
-  try {
-    db = new DeltaDb(root);
-    const config = loadConfig(root);
-    const tokenBudget = budget ?? config.budget.maxTokens;
-
-    const stateStore = new StateStore(db.getDb());
-    const graphStore = new GraphStore(db.getDb());
-    const symbolStore = new SymbolStore(db.getDb());
-    const vectorStore = new VectorStore(db.getDb());
-    const ignorePatterns = loadIgnorePatterns(root);
-
-    // ── 4-layer pipeline ────────────────────────────────────────
-    const allFiles = walkDirectory(root, root, ignorePatterns);
-    const classification = await classifyFiles(root, stateStore, allFiles);
-
-    if (classification.changedCount === 0) {
-      return {
-        content: [{
-          type: 'text',
-          text: [
-            '∆ DELTA: No changes detected.',
-            'All files are identical to the last indexed state.',
-            'Using graph-only context for this task.',
-            '',
-            `Task: ${task}`,
-          ].join('\n'),
-        }],
-      };
-    }
-
-    const changedPaths = classification.changed.map((f) => f.path);
-    const traversal = traverseFromChanged(
-      changedPaths,
-      graphStore,
-      root,
-      config.graph.maxDepth
-    );
-
-    const queryResult = await queryByTask(
-      { task, projectRoot: root, threshold: config.relevance.semanticThreshold },
-      vectorStore,
-      symbolStore
-    );
-
-    const semanticScoreMap = queryResult.embeddingsAvailable
-      ? buildSemanticScoreMap(queryResult.scored)
-      : new Map<string, number>();
-
-    const scores = scoreAllFiles(traversal, semanticScoreMap, {
-      semanticThreshold: config.relevance.semanticThreshold,
-      maxDepth: config.graph.maxDepth,
-    });
-    const ranked = rankForContext(scores);
-
-    const rankedTraversal = {
-      ...traversal,
-      touched: ranked.touched.map((s) => ({
-        path: s.filePath,
-        relativePath: s.relativePath,
-        state: 'TOUCHED' as const,
-        depth: 1,
-      })),
-      ancestors: ranked.ancestors.map((s) => ({
-        path: s.filePath,
-        relativePath: s.relativePath,
-        state: 'ANCESTOR' as const,
-        depth: 2,
-      })),
-    };
-
-    const payload = await assembleContext({
-      task,
-      traversal: rankedTraversal,
-      projectRoot: root,
-      tokenBudget,
-      allProjectFiles: allFiles,
-    });
-
-    // Format response for Claude
-    const response = [
-      payload.formatted,
-      '',
-      '---',
-      `∆ Delta: ${payload.savings.optimizedTokens} tokens sent`,
-      `(saved ${payload.savings.savedTokens.toLocaleString()} · ${payload.savings.reductionPercent}% reduction · ${payload.savings.reductionMultiple}× fewer)`,
-    ].join('\n');
-
-    return {
-      content: [{ type: 'text', text: response }],
-    };
-
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-
-    // Never crash Claude Code - return a safe fallback message
-    return {
-      content: [{
-        type: 'text',
-        text: [
-          `∆ Delta error: ${error}`,
-          'Falling back to unoptimized context.',
-          'Run: delta init to rebuild the index.',
-        ].join('\n'),
-      }],
-    };
-  } finally {
-    db?.close();
-  }
-}
-
-async function handleGetDeltaStats(
-  args: Record<string, unknown>
-): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
-  const projectRoot = typeof args['projectRoot'] === 'string'
-    ? args['projectRoot']
-    : PROJECT_ROOT;
-
-  const root = path.resolve(projectRoot);
-  let db: DeltaDb | null = null;
-
-  try {
-    db = new DeltaDb(root);
-    const stateStore = new StateStore(db.getDb());
-    const graphStore = new GraphStore(db.getDb());
-    const vectorStore = new VectorStore(db.getDb());
-
-    const files = stateStore.getAll();
-    const edges = graphStore.getAllEdges();
-    const embeddingCount = vectorStore.count();
-
-    const totalRawTokens = files.reduce((s, f) => s + f.tokenCount, 0);
-    const totalSymbolTokens = files.reduce((s, f) => s + f.symbolTokenCount, 0);
-    const avgReduction = totalRawTokens > 0
-      ? Math.round((1 - totalSymbolTokens / totalRawTokens) * 100)
-      : 0;
-
-    const stats = [
-      '∆ Delta Index Stats',
-      `Files indexed:    ${files.length}`,
-      `Dependency edges: ${edges.length}`,
-      `Embeddings:       ${embeddingCount}`,
-      `Total raw tokens: ${totalRawTokens.toLocaleString()}`,
-      `Avg compression:  ${avgReduction}%`,
-    ].join('\n');
-
-    return {
-      content: [{ type: 'text', text: stats }],
-    };
-
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    return {
-      content: [{ type: 'text', text: `∆ Delta stats error: ${error}` }],
-    };
-  } finally {
-    db?.close();
-  }
-}
-
-// Entry point
-(async () => {
-  await initializeDatabase();
-  await runMcpServer();
-})().catch((err) => {
-  process.stderr.write(`Delta MCP Server error: ${err}\n`);
-  process.exit(1);
-});
+// Direct execution
+runMcpServer().catch(console.error);

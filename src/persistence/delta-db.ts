@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { DELTA_DIR, DB_FILE } from '../config/defaults.js';
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const SCHEMA = `
   -- Schema version tracking
@@ -245,6 +245,50 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_snapshot_files_snap ON snapshot_files(snapshot_id);
   CREATE INDEX IF NOT EXISTS idx_snapshot_edges_snap ON snapshot_edges(snapshot_id);
+
+  -- ═══ Phase 3: Full-Text Search (FTS5) ══════════════════════════════════════
+
+  -- FTS5 index over symbols (functions, classes, types, exports)
+  CREATE VIRTUAL TABLE IF NOT EXISTS fts_symbols USING fts5(
+    file_path UNINDEXED,
+    symbol_name,
+    symbol_kind,
+    signature,
+    language UNINDEXED
+  );
+
+  -- FTS5 index over file paths and summaries
+  CREATE VIRTUAL TABLE IF NOT EXISTS fts_files USING fts5(
+    file_path UNINDEXED,
+    relative_path,
+    summary,
+    language UNINDEXED,
+    community_name
+  );
+
+  -- FTS5 index over memory items
+  CREATE VIRTUAL TABLE IF NOT EXISTS fts_memory USING fts5(
+    memory_id UNINDEXED,
+    title,
+    content,
+    topic,
+    tags
+  );
+
+  -- FTS5 index over execution flows
+  CREATE VIRTUAL TABLE IF NOT EXISTS fts_flows USING fts5(
+    flow_id UNINDEXED,
+    name,
+    entry_symbol,
+    entry_file UNINDEXED
+  );
+
+  -- FTS5 index over community descriptions
+  CREATE VIRTUAL TABLE IF NOT EXISTS fts_communities USING fts5(
+    community_id UNINDEXED,
+    name,
+    description
+  );
 `;
 
 export class DeltaDb {
