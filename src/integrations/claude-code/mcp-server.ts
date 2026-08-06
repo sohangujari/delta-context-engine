@@ -49,7 +49,7 @@ async function createMcpServer(): Promise<Server> {
   await initializeDatabase();
 
   const server = new Server(
-    { name: 'delta-context-engine', version: '2.0.0' },
+    { name: 'delta-context-engine', version: '1.3.0' },
     { capabilities: { tools: {}, prompts: {} } }
   );
 
@@ -232,7 +232,7 @@ async function runMcpHttpServer(
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        status: 'ok', server: 'delta-context-engine', version: '2.0.0',
+        status: 'ok', server: 'delta-context-engine', version: '1.3.0',
         tools: TOOL_DEFINITIONS.length, prompts: 5, transport: 'http',
       }));
       return;
