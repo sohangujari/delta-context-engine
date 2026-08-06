@@ -36,6 +36,12 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     headerKey: 'Authorization',
     model: 'gpt-4o',
   },
+  codex: {
+    name: 'OpenAI Codex',
+    baseUrl: 'https://api.openai.com',
+    headerKey: 'Authorization',
+    model: 'o3-mini',
+  },
   anthropic: {
     name: 'Anthropic',
     baseUrl: 'https://api.anthropic.com',
@@ -47,6 +53,12 @@ const PROVIDERS: Record<string, ProviderConfig> = {
     baseUrl: 'https://generativelanguage.googleapis.com',
     headerKey: 'x-goog-api-key',
     model: 'gemini-2.5-flash',
+  },
+  opencode: {
+    name: 'OpenCode',
+    baseUrl: 'http://localhost:3000',
+    headerKey: 'Authorization',
+    model: 'default',
   },
   local: {
     name: 'Local LLM',

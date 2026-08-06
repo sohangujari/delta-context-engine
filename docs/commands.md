@@ -16,15 +16,16 @@ Complete reference for every `delta` CLI command.
 
 ## Overview
 
-Delta provides **22 commands** organized into 5 categories:
+Delta provides **25 commands** organized into 6 categories:
 
 | Category | Commands |
 |:---------|:---------|
 | [Core](#core-commands) | `init`, `run`, `stats`, `watch`, `report`, `repair` |
+| [Search](#search-commands) | `search` |
 | [Graph Intelligence](#graph-intelligence-commands) | `communities`, `flows`, `blast`, `risk`, `hubs`, `snapshot` |
 | [Memory](#memory-commands) | `memory` (with 9 subcommands) |
 | [File Management](#file-management-commands) | `include`, `exclude`, `graph` |
-| [Integrations](#integration-commands) | `cursor-init`, `mcp`, `providers` |
+| [Integrations](#integration-commands) | `cursor-init`, `mcp`, `serve`, `proxy`, `providers` |
 
 ---
 
@@ -42,7 +43,7 @@ delta init [path]
 |:---------|:--------|:------------|
 | `path` | `.` (current directory) | Project root directory to index |
 
-**What it does (10 steps):**
+**What it does (11 steps):**
 
 1. Saves configuration to `.delta/config.json`
 2. Scans for files (56+ extensions, respects `.gitignore` + `.deltaignore`)
@@ -54,6 +55,7 @@ delta init [path]
 8. Calculates risk scores (5 dimensions per file)
 9. Detects hubs and bridges (Brandes centrality + Tarjan)
 10. Generates embeddings (if provider available)
+11. Builds FTS5 search index across symbols, files, memory, flows, and communities
 
 **Example:**
 
@@ -631,17 +633,143 @@ delta graph src/auth/login.ts --open
 
 ---
 
+## Search Commands
+
+### `delta search`
+
+Hybrid search across your entire codebase — symbols, files, memory, flows, and communities.
+
+```bash
+delta search <query> [options]
+```
+
+| Option | Default | Description |
+|:-------|:--------|:------------|
+| `--root <path>` | `.` | Project root |
+| `--scope <scope>` | `all` | `all`, `symbols`, `files`, `memory`, `flows`, `communities` |
+| `--limit <n>` | `20` | Max results |
+| `--json` | off | Output as JSON |
+| `-v, --verbose` | off | Show BM25/RRF scores |
+
+**How search works:**
+- Uses FTS5 full-text search with BM25 scoring across 5 virtual tables
+- When embeddings are available, automatically switches to **Hybrid mode**: combines FTS5 + vector search using Reciprocal Rank Fusion (RRF, k=60)
+- Results are grouped by type: symbols → files → memory → flows → communities
+
+**Examples:**
+
+```bash
+# Search everything
+delta search "authentication"
+
+# Search only symbols
+delta search "validateToken" --scope symbols
+
+# JSON output for scripting
+delta search "payment" --json
+
+# Verbose with scores
+delta search "error handling" -v
+```
+
+---
+
 ## Integration Commands
 
 ### `delta mcp`
 
-Start the MCP (Model Context Protocol) server for Claude Code integration.
+Start the MCP (Model Context Protocol) server. Exposes 14 tools and 5 prompts.
 
 ```bash
-delta mcp
+delta mcp [options]
 ```
 
-Uses stdio transport. See [Integrations](/delta-context-engine/integrations) for setup instructions.
+| Option | Default | Description |
+|:-------|:--------|:------------|
+| `--transport <type>` | `stdio` | Transport: `stdio` or `http` |
+| `--port <port>` | `7734` | HTTP server port (only with `--transport http`) |
+| `--host <host>` | `127.0.0.1` | HTTP server host (only with `--transport http`) |
+
+**Examples:**
+
+```bash
+# stdio mode (for Claude Code)
+delta mcp
+
+# HTTP mode (for any MCP client)
+delta mcp --transport http
+
+# HTTP on custom port
+delta mcp --transport http --port 8080
+```
+
+See [Integrations](/delta-context-engine/integrations) for setup instructions.
+
+### `delta serve`
+
+Start an HTTP MCP server for universal tool access.
+
+```bash
+delta serve [options]
+```
+
+| Option | Default | Description |
+|:-------|:--------|:------------|
+| `--root <path>` | `.` | Project root |
+| `--port <port>` | `7734` | Server port |
+| `--host <host>` | `127.0.0.1` | Server host |
+
+Exposes all 14 MCP tools and 5 prompts over HTTP. Any MCP-compatible client can connect.
+
+**Endpoints:**
+
+| Endpoint | Method | Description |
+|:---------|:-------|:------------|
+| `/mcp` | POST | JSON-RPC MCP requests |
+| `/health` | GET | Server status |
+
+**Example:**
+
+```bash
+# Start server
+delta serve --port 7734
+
+# Health check
+curl http://127.0.0.1:7734/health
+
+# Call a tool
+curl -X POST http://127.0.0.1:7734/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_stats","arguments":{}}}'
+```
+
+### `delta proxy`
+
+Start an OpenAI-compatible proxy that auto-injects Delta context into every LLM request.
+
+```bash
+delta proxy [options]
+```
+
+| Option | Default | Description |
+|:-------|:--------|:------------|
+| `--root <path>` | `.` | Project root |
+| `--port <port>` | `7735` | Proxy port |
+| `--provider <name>` | `openai` | `openai`, `codex`, `anthropic`, `gemini`, `opencode`, `local` |
+| `--model <model>` | Provider default | Model name override |
+| `--api-key <key>` | `$OPENAI_API_KEY` | API key |
+
+**How it works:** Intercepts LLM requests, extracts the task, runs Delta's full pipeline, injects context as a system message, then forwards to the provider.
+
+**Example:**
+
+```bash
+# Start proxy
+delta proxy --provider openai
+
+# Point your tools at the proxy
+export OPENAI_API_BASE=http://127.0.0.1:7735/v1
+```
 
 ### `delta cursor-init`
 

@@ -84,9 +84,18 @@ program
 
 program
   .command('mcp')
-  .description('Start Delta MCP server for Claude Code integration')
-  .action(async () => {
-    await import('../../integrations/claude-code/mcp-server.js');
+  .description('Start Delta MCP server (14 tools, 5 prompts)')
+  .option('--transport <type>', 'Transport: stdio (default) or http', 'stdio')
+  .option('--port <port>', 'HTTP server port (only with --transport http)', '7734')
+  .option('--host <host>', 'HTTP server host (only with --transport http)', '127.0.0.1')
+  .action(async (options: { transport: string; port: string; host: string }) => {
+    if (options.transport === 'http') {
+      const { runMcpHttpServer } = await import('../../integrations/claude-code/mcp-server.js');
+      await runMcpHttpServer({ port: parseInt(options.port, 10), host: options.host });
+    } else {
+      const { runMcpServer } = await import('../../integrations/claude-code/mcp-server.js');
+      await runMcpServer();
+    }
   });
 
 program
@@ -267,7 +276,7 @@ program
   .description('Start OpenAI-compatible proxy with auto Delta context injection')
   .option('-r, --root <path>', 'Project root directory', '.')
   .option('-p, --port <port>', 'Proxy port', '7735')
-  .option('--provider <name>', 'Provider: openai, anthropic, gemini, local', 'openai')
+  .option('--provider <name>', 'Provider: openai, codex, anthropic, gemini, opencode, local', 'openai')
   .option('--model <model>', 'Model name override')
   .option('--api-key <key>', 'API key (or use env vars)')
   .action(async (options: { root: string; port?: string; provider?: string; model?: string; apiKey?: string }) => {

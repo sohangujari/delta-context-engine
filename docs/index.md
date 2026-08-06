@@ -49,10 +49,12 @@ TOTAL:        12,005 tokens ❌        6.2× fewer tokens
 |:--------|:------------|
 | **Context Intelligence** | 4-layer pipeline: change detection → AST extraction → dependency graph → context assembly |
 | **Graph Intelligence** | Leiden community detection, execution flow tracing, blast radius, risk scoring, hub/bridge detection |
+| **Hybrid Search** | FTS5 full-text + semantic vector search with Reciprocal Rank Fusion across symbols, files, memory, flows, and communities |
 | **Memory System** | Persistent memory across sessions — architectural decisions, bug fixes, and edge cases auto-captured |
 | **56+ Languages** | Full AST parsing (6 languages), pattern extraction (15+), notebook support, and minimal indexing for 30+ more |
+| **14 MCP Tools + 5 Prompts** | blast_radius, codebase_compass, fault_tracer, first_day, merge_guardian |
 | **Multi-Provider Embeddings** | Ollama (local), OpenAI, Azure OpenAI — with automatic fallback |
-| **Editor Integrations** | Claude Code (MCP), Cursor, VS Code extension |
+| **Universal Tool Support** | Claude Code (MCP stdio), HTTP MCP server, OpenAI-compatible proxy, Cursor, VS Code |
 | **Zero Config** | Works out of the box. Customize when you need to. |
 
 ---

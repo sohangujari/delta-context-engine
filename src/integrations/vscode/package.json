@@ -1,0 +1,61 @@
+{
+  "name": "delta-context-engine",
+  "displayName": "∆ Delta Context Engine",
+  "description": "AI-powered context intelligence — only send what changed",
+  "version": "2.0.0",
+  "publisher": "delta-ctx",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": ["AI", "Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "delta.chat",
+        "name": "delta",
+        "fullName": "∆ Delta Context",
+        "description": "Get Delta-optimized codebase context, search, blast radius, and more",
+        "isSticky": false,
+        "commands": [
+          {
+            "name": "context",
+            "description": "Get optimized context for a task"
+          },
+          {
+            "name": "search",
+            "description": "Hybrid search across the codebase"
+          },
+          {
+            "name": "blast",
+            "description": "Calculate blast radius for changed files"
+          },
+          {
+            "name": "risk",
+            "description": "Show risk scores for files"
+          },
+          {
+            "name": "compass",
+            "description": "Architecture overview of the codebase"
+          },
+          {
+            "name": "first-day",
+            "description": "Onboarding guide for new developers"
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.extension.json",
+    "watch": "tsc -watch -p ./tsconfig.extension.json"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.93.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "delta-ctx": "^2.0.0"
+  }
+}

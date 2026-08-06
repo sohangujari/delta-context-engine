@@ -213,6 +213,15 @@ Delta automatically detects Ollama and enables semantic scoring. Falls back to g
 | `delta snapshot diff <label>` | Diff current state vs a snapshot |
 | `delta snapshot delete <label>` | Remove a snapshot |
 
+### Search (V2)
+
+| Command | Description |
+|---|---|
+| `delta search <query>` | Hybrid search across symbols, files, memory, flows, communities |
+| `delta search <query> --scope symbols` | Limit to one search scope |
+| `delta search <query> --json` | Output as JSON |
+| `delta search <query> -v` | Show BM25/RRF scores |
+
 ### Memory System (V2)
 
 | Command | Description |
@@ -243,12 +252,14 @@ Delta automatically detects Ollama and enables semantic scoring. Falls back to g
 | `delta graph <file>` | Show dependency graph for a file |
 | `delta graph <file> --open` | Open SVG graph in browser |
 
-### Editor Integrations
+### Editor & Server Integrations
 
 | Command | Description |
 |---|---|
 | `delta cursor-init` | Set up Cursor editor integration |
-| `delta mcp` | Start MCP server for Claude Code |
+| `delta mcp` | Start MCP server for Claude Code (stdio, 14 tools, 5 prompts) |
+| `delta serve` | Start HTTP MCP server for universal tool access (port 7734) |
+| `delta proxy` | Start OpenAI-compatible proxy with auto context injection (port 7735) |
 
 ### Options
 

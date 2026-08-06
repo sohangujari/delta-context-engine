@@ -15,6 +15,7 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import http from 'http';
 import path from 'path';
 import { initializeDatabase } from '../../persistence/database.js';
 import { TOOL_DEFINITIONS } from './tool-definitions.js';
@@ -43,9 +44,8 @@ import { buildFirstDayPrompt } from './prompts/first-day-prompt.js';
 import { buildMergeGuardianPrompt } from './prompts/merge-guardian-prompt.js';
 
 const PROJECT_ROOT = process.cwd();
-const TRANSPORT = process.env['DELTA_MCP_TRANSPORT'] ?? 'stdio';
 
-async function runMcpServer(): Promise<void> {
+async function createMcpServer(): Promise<Server> {
   await initializeDatabase();
 
   const server = new Server(
@@ -194,14 +194,113 @@ async function runMcpServer(): Promise<void> {
     }
   });
 
-  // ── Start server ────────────────────────────────────────────────────────────
+  return server;
+}
 
+/**
+ * Start MCP server over stdio transport (for Claude Code).
+ */
+async function runMcpServer(): Promise<void> {
+  const server = await createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-// Export for use by `delta serve` and `delta mcp`
-export { runMcpServer };
+/**
+ * Start MCP server over HTTP transport (for universal tool access).
+ */
+async function runMcpHttpServer(
+  options: { port?: number; host?: string } = {}
+): Promise<void> {
+  const server = await createMcpServer();
+  const port = options.port ?? 7734;
+  const host = options.host ?? '127.0.0.1';
 
-// Direct execution
-runMcpServer().catch(console.error);
+  // Register tools/prompts are already set on the server from createMcpServer.
+  // Build HTTP server that dispatches JSON-RPC to the MCP server.
+  const httpServer = http.createServer(async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'ok', server: 'delta-context-engine', version: '2.0.0',
+        tools: TOOL_DEFINITIONS.length, prompts: 5, transport: 'http',
+      }));
+      return;
+    }
+
+    if (req.method !== 'POST' || !req.url?.startsWith('/mcp')) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'POST /mcp for MCP requests, GET /health for status.' }));
+      return;
+    }
+
+    let body = '';
+    for await (const chunk of req) { body += chunk; }
+
+    try {
+      const jsonRpc = JSON.parse(body);
+      const method = jsonRpc.method;
+      const params = jsonRpc.params ?? {};
+      const id = jsonRpc.id;
+      let result: unknown;
+
+      if (method === 'tools/list') {
+        result = { tools: TOOL_DEFINITIONS };
+      } else if (method === 'tools/call') {
+        const toolName = params.name;
+        const toolArgs: Record<string, unknown> = params.arguments ?? {};
+        switch (toolName) {
+          case 'get_optimized_context': result = await handleGetOptimizedContext(toolArgs, PROJECT_ROOT); break;
+          case 'get_community_map': result = await handleGetCommunityMap(toolArgs, PROJECT_ROOT); break;
+          case 'get_execution_flows': result = await handleGetExecutionFlows(toolArgs, PROJECT_ROOT); break;
+          case 'get_blast_radius': result = await handleGetBlastRadius(toolArgs, PROJECT_ROOT); break;
+          case 'get_risk_scores': result = await handleGetRiskScores(toolArgs, PROJECT_ROOT); break;
+          case 'get_memory': result = await handleGetMemory(toolArgs, PROJECT_ROOT); break;
+          case 'save_memory': result = await handleSaveMemory(toolArgs, PROJECT_ROOT); break;
+          case 'search_codebase': result = await handleSearchCodebase(toolArgs, PROJECT_ROOT); break;
+          case 'get_graph_diff': result = await handleGetGraphDiff(toolArgs, PROJECT_ROOT); break;
+          case 'get_hub_files': result = await handleGetHubFiles(toolArgs, PROJECT_ROOT); break;
+          case 'get_bridge_files': result = await handleGetBridgeFiles(toolArgs, PROJECT_ROOT); break;
+          case 'get_snapshot': result = await handleGetSnapshot(toolArgs, PROJECT_ROOT); break;
+          case 'save_snapshot': result = await handleSaveSnapshot(toolArgs, PROJECT_ROOT); break;
+          case 'get_stats': result = await handleGetStats(toolArgs, PROJECT_ROOT); break;
+          default: result = { content: [{ type: 'text', text: `Unknown tool: ${toolName}` }], isError: true };
+        }
+      } else {
+        result = { error: `Unknown method: ${method}` };
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ jsonrpc: '2.0', id, result }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      }));
+    }
+  });
+
+  httpServer.listen(port, host, () => {
+    console.error(`Delta MCP server (HTTP) running on http://${host}:${port}`);
+    console.error(`  POST http://${host}:${port}/mcp  — MCP requests`);
+    console.error(`  GET  http://${host}:${port}/health — Health check`);
+  });
+
+  process.on('SIGINT', () => {
+    httpServer.close();
+    process.exit(0);
+  });
+}
+
+export { runMcpServer, runMcpHttpServer };
